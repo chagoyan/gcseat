@@ -1,4 +1,4 @@
-# GC Seat
+# GCSeat
 
 A standalone seating chart app, forked out of GCDash's `seating.html` so the
 seating chart tool has its own login and period-selection flow instead of
@@ -26,7 +26,7 @@ authorized JavaScript origin for that Client ID, add it in
 ## Aeries sync
 
 1. Start `../mock-aeries-server` and `../gcseat-backend` (see their READMEs).
-2. Load a class in GC Seat.
+2. Load a class in GCSeat.
 3. Open **⚙ Settings → Aeries API**, confirm the backend URL
    (`http://localhost:3001` by default), click **Test Connection**.
 4. Click **Sync Current Class** — populates Language Fluency, Program, and

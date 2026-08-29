@@ -1,4 +1,4 @@
-# GC Seat
+# GCSeat
 
 A Google Classroom seating chart app, with an Aeries SIS integration built
 on a local mock-first development pattern. Originally forked out of
@@ -16,7 +16,7 @@ mock-aeries-server/     Local stand-in for the real Aeries API
 ## Architecture
 
 ```
-GC Seat (browser)
+GCSeat (browser)
    │  no cert, calls gcseat-backend only
    ▼
 gcseat-backend

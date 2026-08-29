@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1200, user-scalable=yes" />
-  <title>GC Seat</title>
+  <title>GCSeat</title>
   <link rel="icon" type="image/png" href="logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
@@ -206,7 +206,7 @@
       gap: 8px;
     }
 
-    /* ── Auth overlay — GC Seat login screen ─────────────────────────── */
+    /* ── Auth overlay — GCSeat login screen ─────────────────────────── */
     #authOverlay {
       position: fixed;
       inset: 0;
@@ -434,23 +434,24 @@
       transform: translateY(-50%);
       width: 18px;
       height: 48px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: #f57c00;
+      border: 1px solid #f57c00;
       border-left: none;
       border-radius: 0 6px 6px 0;
       display: none;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      color: var(--text-muted);
+      color: #fff;
       font-size: 0.7rem;
       z-index: 20;
       transition: background 0.15s, color 0.15s;
     }
 
     #reopenTab:hover {
-      background: var(--surface2);
-      color: var(--accent);
+      background: #e65100;
+      border-color: #e65100;
+      color: #fff;
     }
 
     #sidebar.collapsed~#chartArea #reopenTab {
@@ -464,6 +465,18 @@
       padding: 10px 12px 8px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
+    }
+
+    #toggleSidebarBtn {
+      background: #f57c00;
+      border-color: #f57c00;
+      color: #fff;
+    }
+
+    #toggleSidebarBtn:hover:not(:disabled) {
+      background: #e65100;
+      border-color: #e65100;
+      color: #fff;
     }
 
     .sidebar-header h2 {
@@ -1233,6 +1246,7 @@
     body.is-phone #saveRoomBtn,
     body.is-phone #deleteRoomBtn,
     body.is-phone #assignBtn,
+    body.is-phone #resetAttendanceBtn,
     body.is-phone #saveBtn,
     body.is-phone #settingsBtn,
     body.is-phone #printBtn,
@@ -1264,6 +1278,7 @@
     body.is-tablet #deleteRoomBtn,
     body.is-tablet #editRoomBtn,
     body.is-tablet #assignBtn,
+    body.is-tablet #resetAttendanceBtn,
     body.is-tablet #saveBtn,
     body.is-tablet #settingsBtn,
     body.is-tablet #printBtn,
@@ -1430,7 +1445,7 @@
     <div class="gc-header">
       <img src="logo.png" alt="CHS Technology Pathway" class="gc-logo" onerror="this.style.display='none'" />
       <div>
-        <h1>GC Seat</h1>
+        <h1>GCSeat</h1>
         <p class="subtitle">Seating Chart</p>
       </div>
     </div>
@@ -1449,8 +1464,8 @@
     <!-- Row 1: Brand + Sign out -->
     <div style="display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);">
       <a class="header-brand" href="#" onclick="return false;">
-        <img src="logo.png" alt="GC Seat" onerror="this.style.display='none'" />
-        GC Seat
+        <img src="logo.png" alt="GCSeat" onerror="this.style.display='none'" />
+        GCSeat
       </a>
       <a href="#" onclick="signOutSeating(); return false;"
         style="margin-left:auto;font-size:13px;color:var(--text-muted);text-decoration:none;">Sign out</a>
@@ -1486,9 +1501,9 @@
           <button data-mode="random">Random</button>
           <hr />
           <button data-mode="reset" class="danger">Reset — Clear All Seats</button>
-          <button data-mode="resetAttendance" class="danger">Reset — Clear Attendance (A/T/P)</button>
         </div>
       </div>
+      <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy marks for this class">Reset Attendance</button>
       <button class="btn btn-primary" id="saveBtn" disabled>Save Seating Chart</button>
       <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
       <button class="btn btn-ghost" id="printBtn">Print</button>
@@ -1620,7 +1635,7 @@
       <div class="settings-section">
         <h3>Aeries API <span id="aeriesStatusLabel" style="font-size:0.7rem;color:var(--text-dim);font-weight:400;margin-left:6px;">— Not tested</span></h3>
         <div class="aeries-note">
-          GC Seat never talks to Aeries directly and never holds the AERIES-CERT.
+          GCSeat never talks to Aeries directly and never holds the AERIES-CERT.
           It calls a small local backend (gcseat-backend) that holds the cert and proxies to Aeries —
           today that's a local mock server for development; later it can point at the real district Aeries API.
         </div>
@@ -2298,7 +2313,9 @@
 
     function setDeskOccupied(desk, student) {
       const tier = privateMode ? '' : tierClass(student);
-      const att = attendanceClass(student.id);
+      // Attendance color fill is Public View only — Private View shows grade-tier
+      // colors instead, and the attendance letter badge (below) stays visible either way.
+      const att = privateMode ? attendanceClass(student.id) : '';
       desk.className = `desk occupied ${tier}${att ? ' ' + att : ''}`;
       desk.draggable = !IS_TOUCH;
 
@@ -2315,8 +2332,9 @@
         addTabletTapHandler(desk, desk.dataset.key);
       }
 
-      // Build meta tags
-      const tags = Object.entries(settings.metaLabels)
+      // Build meta tags — Aeries data (Lang. Fluency, Program, IEP/504, etc.) is
+      // Private View only, same as grade-tier colors. Kept out of Public View.
+      const tags = privateMode ? '' : Object.entries(settings.metaLabels)
         .filter(([k, label]) => label && student.meta[k])
         .map(([k]) => `<span class="desk-tag">${student.meta[k]}</span>`)
         .join('');
@@ -2672,6 +2690,8 @@
     });
     document.addEventListener('click', () => assignMenu.classList.remove('open'));
 
+    document.getElementById('resetAttendanceBtn').addEventListener('click', () => doAssign('resetAttendance'));
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ADD / REMOVE ROW
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2842,12 +2862,12 @@
       }
     }
 
-    // GC Seat reuses GCDash's own OAuth Client ID, so a GC Seat access token
+    // GCSeat reuses GCDash's own OAuth Client ID, so a GCSeat access token
     // carries the same per-file Drive grants GCDash has already accumulated —
     // meaning it CAN see GCDash's .gcdash-config folder, unlike a folder/file
-    // created by some other app or account tool. One-time only: if GC Seat's
+    // created by some other app or account tool. One-time only: if GCSeat's
     // own settings file has no seating data yet, pull GCDash's existing data
-    // in and adopt it as GC Seat's own from then on.
+    // in and adopt it as GCSeat's own from then on.
     async function importFromGCDashIfEmpty() {
       try {
         const gcdashFolderId = await findFolderByName('.gcdash-config');
@@ -3267,7 +3287,7 @@
           <span class="leg leg-red">At risk (&#x2264;60%)</span>
           <span class="leg leg-gray">No data</span>
         </div>
-        <div class="footer">GC Seat &middot; ${date}</div>
+        <div class="footer">GCSeat &middot; ${date}</div>
       </div>`;
       });
 
