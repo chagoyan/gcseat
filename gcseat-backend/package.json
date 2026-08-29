@@ -1,0 +1,16 @@
+{
+  "name": "gcseat-backend",
+  "version": "1.0.0",
+  "description": "Middle backend for GC Seat. Holds the AERIES-CERT server-side and is the only piece that ever talks to the Aeries API (mock or real) directly. The GC Seat frontend never sees the certificate.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "_readme": "Optional curated overrides. Any student NOT listed here still works — the mock server deterministically generates fake-but-consistent demographic/program data for any name it's asked about (same name always returns the same fake data). Add entries here only when you want to force a specific test case, e.g. an EL student or an IEP flag on a specific roster name, so you can verify GC Seat renders it correctly. Keying is by lowercase 'first last' name. StudentID here is fake and unrelated to any real Aeries ID.",
+  "students": [
+    {
+      "matchName": "jane doe",
+      "studentInfo": {
+        "StudentID": 900001,
+        "FirstName": "Jane",
+        "LastName": "Doe",
+        "MiddleName": "",
+        "Grade": 10,
+        "Birthdate": "2010-04-12",
+        "HomeLanguageCode": "ENG",
+        "LanguageFluencyCode": "EO",
+        "CorrespondenceLanguageCode": "ENG",
+        "EthnicityCode": "W",
+        "InactiveStatusCode": null
+      },
+      "programs": [
+        {
+          "StudentID": 900001,
+          "SchoolCode": 1,
+          "ProgramCode": "GATE",
+          "ProgramName": "Gifted and Talented Education",
+          "StartDate": "2023-08-15",
+          "EndDate": null
+        }
+      ]
+    },
+    {
+      "matchName": "carlos ramirez",
+      "studentInfo": {
+        "StudentID": 900002,
+        "FirstName": "Carlos",
+        "LastName": "Ramirez",
+        "MiddleName": "A",
+        "Grade": 9,
+        "Birthdate": "2011-01-22",
+        "HomeLanguageCode": "SPA",
+        "LanguageFluencyCode": "EL",
+        "CorrespondenceLanguageCode": "SPA",
+        "EthnicityCode": "H",
+        "InactiveStatusCode": null
+      },
+      "programs": [
+        {
+          "StudentID": 900002,
+          "SchoolCode": 1,
+          "ProgramCode": "ELL",
+          "ProgramName": "English Language Learner",
+          "StartDate": "2022-08-15",
+          "EndDate": null
+        }
+      ]
+    },
+    {
+      "matchName": "amara okafor",
+      "studentInfo": {
+        "StudentID": 900003,
+        "FirstName": "Amara",
+        "LastName": "Okafor",
+        "MiddleName": "",
+        "Grade": 11,
+        "Birthdate": "2009-09-03",
+        "HomeLanguageCode": "ENG",
+        "LanguageFluencyCode": "EO",
+        "CorrespondenceLanguageCode": "ENG",
+        "EthnicityCode": "B",
+        "InactiveStatusCode": null
+      },
+      "programs": [
+        {
+          "StudentID": 900003,
+          "SchoolCode": 1,
+          "ProgramCode": "SPED",
+          "ProgramName": "Special Education (IEP)",
+          "StartDate": "2021-08-15",
+          "EndDate": null
+        }
+      ]
+    },
+    {
+      "matchName": "min-jun kim",
+      "studentInfo": {
+        "StudentID": 900004,
+        "FirstName": "Min-Jun",
+        "LastName": "Kim",
+        "MiddleName": "",
+        "Grade": 12,
+        "Birthdate": "2008-11-30",
+        "HomeLanguageCode": "KOR",
+        "LanguageFluencyCode": "RFEP",
+        "CorrespondenceLanguageCode": "ENG",
+        "EthnicityCode": "A",
+        "InactiveStatusCode": null
+      },
+      "programs": [
+        {
+          "StudentID": 900004,
+          "SchoolCode": 1,
+          "ProgramCode": "504",
+          "ProgramName": "Section 504 Plan",
+          "StartDate": "2024-01-10",
+          "EndDate": null
+        }
+      ]
+    }
+  ]
+}

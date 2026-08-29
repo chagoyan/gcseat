@@ -1,0 +1,11 @@
+
+# ============================================================
+# Netlify Configuration — GC Seat
+# ============================================================
+
+[build]
+  # Run build script before deploying
+  command = "node build.js"
+
+  # Serve files from this directory
+  publish = "."

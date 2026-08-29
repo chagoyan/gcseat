@@ -1,0 +1,15 @@
+{
+  "name": "mock-aeries-server",
+  "version": "1.0.0",
+  "description": "Local mock of the Aeries SIS REST API (v5) — simulates student info and program endpoints for GC Seat development, with no real student data.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

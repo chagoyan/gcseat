@@ -1,0 +1,3566 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1200, user-scalable=yes" />
+  <title>GC Seat</title>
+  <link rel="icon" type="image/png" href="logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ── Reset & tokens ──────────────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #f1f3f4;
+      --surface: #ffffff;
+      --surface2: #f8f9fa;
+      --border: #dadce0;
+      --accent: #F26522;
+      --accent-dim: #C74E0A;
+      --text: #202124;
+      --text-muted: #5f6368;
+      --text-dim: #80868b;
+
+      /* grade tiers */
+      --green: #22c55e;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --yellow: #eab308;
+      --yellow-bg: rgba(234, 179, 8, 0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --gray: #64748b;
+      --gray-bg: rgba(100, 116, 139, 0.10);
+
+      --desk-w: 118px;
+      --desk-h: 76px;
+      --gap: 10px;
+      --radius: 8px;
+      --header-h: 56px;
+      --toolbar-h: 48px;
+      --sidebar-w: 200px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    header {
+      height: var(--header-h);
+      min-height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      z-index: 100;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    .header-brand img {
+      height: 26px;
+      width: 26px;
+      object-fit: contain;
+    }
+
+    .header-brand .sep {
+      color: var(--text-dim);
+      margin: 0 2px;
+    }
+
+    .header-brand .page {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    select,
+    input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    select:focus,
+    input[type="number"]:focus {
+      border-color: var(--accent);
+    }
+
+    select option {
+      background: var(--surface2);
+    }
+
+    select:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    input[type="number"] {
+      width: 56px;
+      text-align: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 13px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 0.84rem;
+      font-family: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #3d7fc4;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .btn-danger {
+      background: transparent;
+      border-color: var(--border);
+      color: #ef4444;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+
+    .divider-v {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Auth overlay — GC Seat login screen ─────────────────────────── */
+    #authOverlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      font-family: sans-serif;
+    }
+
+    #authOverlay.hidden {
+      display: none;
+    }
+
+    .gc-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .gc-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .gc-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .gc-header .subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .setup-box {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .setup-box h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .token-note {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .btn-connect {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--text);
+      background: var(--accent);
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: sans-serif;
+    }
+
+    .btn-connect:hover {
+      background: var(--accent-dim);
+    }
+
+    .btn-connect:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    #toolbar {
+      height: var(--toolbar-h);
+      min-height: var(--toolbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 16px;
+      z-index: 90;
+    }
+
+    .toolbar-label {
+      font-size: 0.75rem;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 4px;
+    }
+
+    /* Dropdown wrap */
+    .dd-wrap {
+      position: relative;
+    }
+
+    .dd-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      z-index: 200;
+      min-width: 180px;
+      overflow: hidden;
+      padding: 4px 0;
+    }
+
+    .dd-menu.open {
+      display: block;
+    }
+
+    .dd-menu button {
+      display: block;
+      width: 100%;
+      padding: 8px 14px;
+      background: none;
+      border: none;
+      color: var(--text);
+      text-align: left;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .dd-menu button:hover {
+      background: var(--surface);
+    }
+
+    .dd-menu button.danger {
+      color: #ef4444;
+    }
+
+    .dd-menu hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 4px 0;
+    }
+
+    /* ── Legend ──────────────────────────────────────────────────────────── */
+    #legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px;
+      height: 36px;
+      min-height: 36px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    .legend-item {
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+    }
+
+    #legend-meta {
+      margin-left: auto;
+      color: var(--text-dim);
+      font-size: 0.72rem;
+    }
+
+    /* ── Main layout ─────────────────────────────────────────────────────── */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s, min-width 0.2s;
+    }
+
+    #sidebar.collapsed {
+      width: 0;
+      min-width: 0;
+      border-right: none;
+    }
+
+    #reopenTab {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: none;
+      border-radius: 0 6px 6px 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      z-index: 20;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #reopenTab:hover {
+      background: var(--surface2);
+      color: var(--accent);
+    }
+
+    #sidebar.collapsed~#chartArea #reopenTab {
+      display: flex;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-header h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    #rosterList {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    #rosterList::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #rosterList::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #rosterList::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .student-chip {
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: grab;
+      border-left: 3px solid transparent;
+      background: var(--surface2);
+      color: var(--text);
+      transition: opacity 0.15s, background 0.15s;
+      user-select: none;
+      line-height: 1.3;
+    }
+
+    .student-chip:active {
+      cursor: grabbing;
+    }
+
+    .student-chip.placed {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .student-chip.unseated {
+      background: rgba(250, 204, 21, 0.35);
+    }
+
+    .student-chip.tier-green {
+      border-color: var(--green);
+    }
+
+    .student-chip.tier-yellow {
+      border-color: var(--yellow);
+    }
+
+    .student-chip.tier-red {
+      border-color: var(--red);
+    }
+
+    .student-chip.tier-gray {
+      border-color: var(--accent);
+    }
+
+    .student-chip.chip-selected {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      background: rgba(242, 101, 34, 0.15);
+    }
+
+    #rosterHint {
+      padding: 12px;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    /* ── Chart area ──────────────────────────────────────────────────────── */
+    #chartArea {
+      flex: 1;
+      overflow: auto;
+      padding: 24px;
+      position: relative;
+    }
+
+    #chartArea::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    #chartArea::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #chartArea::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    #gridWrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    #grid {
+      display: grid;
+      gap: var(--gap);
+    }
+
+    /* ── Desk cards ──────────────────────────────────────────────────────── */
+    .desk {
+      width: var(--desk-w);
+      height: var(--desk-h);
+      border-radius: var(--radius);
+      border: 1px dashed var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .desk:hover:not(.occupied):not(.is-aisle) {
+      border-color: var(--accent);
+      background: var(--surface2);
+      color: var(--accent);
+    }
+
+    .desk.drag-over {
+      border-color: var(--accent);
+      background: rgba(242, 101, 34, 0.08);
+    }
+
+    .desk.is-aisle {
+      background: #e8eaed;
+      border: 1px dashed var(--border);
+      opacity: 0.7;
+    }
+
+    .desk.is-aisle:hover {
+      opacity: 0.9;
+    }
+
+    .desk.is-space {
+      background: var(--bg);
+      border: 1px solid #e8eaed !important;
+      cursor: default !important;
+      opacity: 1;
+    }
+    .desk.is-space:hover {
+      background: var(--bg) !important;
+      box-shadow: none !important;
+    }
+    body.room-edit-mode .desk:not(.occupied):not(.is-aisle) {
+      cursor: pointer !important;
+    }
+    body.room-edit-mode .desk.is-space:hover {
+      background: #e8eaed !important;
+    }
+    body.room-edit-mode .desk:not(.is-space):not(.occupied):not(.is-aisle) {
+      border: 1px dashed #F26522 !important;
+    }
+    #editRoomBtn.active {
+      background: #F26522;
+      color: #fff;
+      border-color: transparent;
+    }
+
+    #privacyToggleBtn.active {
+      background: #F26522;
+      color: #fff;
+      border-color: transparent;
+    }
+
+    body.private-mode #legend {
+      display: none;
+    }
+
+    .restore-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    /* Occupied desk */
+    .desk.occupied {
+      border: none;
+      border-left: 3px solid transparent;
+      cursor: default;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding: 6px 8px;
+      gap: 1px;
+      draggable: true;
+    }
+
+    .desk.occupied.tier-green {
+      background: var(--green-bg);
+      border-color: var(--green);
+    }
+
+    .desk.occupied.tier-yellow {
+      background: var(--yellow-bg);
+      border-color: var(--yellow);
+    }
+
+    .desk.occupied.tier-red {
+      background: var(--red-bg);
+      border-color: var(--red);
+    }
+
+    .desk.occupied.tier-gray {
+      background: var(--surface2);
+      border-color: var(--accent);
+    }
+
+    /* Attendance overrides — take priority over grade tier coloring */
+    .desk.occupied.att-absent {
+      background: var(--accent-dim);
+      border-color: var(--accent-dim);
+    }
+
+    .desk.occupied.att-absent .desk-grade,
+    .desk.occupied.att-absent .desk-name,
+    .desk.occupied.att-absent .desk-name a {
+      color: #fff;
+    }
+
+    .desk.occupied.att-tardy {
+      background: rgba(242, 101, 34, 0.3);
+      border-color: var(--accent);
+    }
+
+    .desk.occupied.att-present {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: #3b82f6;
+    }
+
+    .desk.occupied:hover {
+      filter: brightness(1.08);
+      cursor: grab;
+    }
+
+    .desk.occupied:active {
+      cursor: grabbing;
+    }
+
+    .desk.dragging {
+      opacity: 0.3;
+    }
+
+    .desk-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.12);
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.6rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 2;
+    }
+
+    .desk-number-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 3px;
+      border-radius: 3px;
+      background: #fff;
+      color: var(--text-dim);
+      font-size: 0.62rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      pointer-events: none;
+      z-index: 1;
+      transition: opacity 0.15s;
+    }
+
+    .desk:hover .desk-remove {
+      opacity: 1;
+    }
+
+    .desk.occupied:hover .desk-number-badge {
+      opacity: 0;
+    }
+
+    .desk-att-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      color: var(--accent-dim);
+      font-size: 0.62rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .desk-grade {
+      font-size: 0.7rem;
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .desk-name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    .desk-meta-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      margin-top: 2px;
+    }
+
+    .desk-tag {
+      font-size: 0.62rem;
+      font-family: 'DM Mono', monospace;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.07);
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── Resize handles ──────────────────────────────────────────────────── */
+    #resizeOverlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .resize-handle {
+      position: absolute;
+      pointer-events: all;
+      background: transparent;
+      transition: background 0.15s;
+      border-radius: 2px;
+    }
+
+    .col-handle {
+      width: 10px;
+      top: 0;
+      bottom: 0;
+      cursor: col-resize;
+      transform: translateX(-50%);
+    }
+
+    .row-handle {
+      height: 10px;
+      left: 0;
+      right: 0;
+      cursor: row-resize;
+      transform: translateY(-50%);
+    }
+
+    .col-handle:hover,
+    .col-handle.active {
+      background: rgba(242, 101, 34, 0.25);
+    }
+
+    .row-handle:hover,
+    .row-handle.active {
+      background: rgba(242, 101, 34, 0.25);
+    }
+
+    /* ── Student picker modal ────────────────────────────────────────────── */
+    #pickerOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #pickerOverlay.hidden {
+      display: none;
+    }
+
+    #pickerBox {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 280px;
+      max-height: 420px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    }
+
+    #pickerBox h3 {
+      padding: 14px 16px 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    #pickerSearch {
+      margin: 10px 12px 0;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    #pickerSearch:focus {
+      border-color: var(--accent);
+    }
+
+    #pickerList {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    #pickerList::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    #pickerList::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .picker-item {
+      padding: 7px 10px;
+      border-radius: 5px;
+      font-size: 0.83rem;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      background: var(--surface);
+      transition: background 0.1s;
+    }
+
+    .picker-item:hover {
+      background: var(--border);
+    }
+
+    .picker-item.tier-green {
+      border-color: var(--green);
+    }
+
+    .picker-item.tier-yellow {
+      border-color: var(--yellow);
+    }
+
+    .picker-item.tier-red {
+      border-color: var(--red);
+    }
+
+    .picker-item.tier-gray {
+      border-color: var(--accent);
+    }
+
+    .picker-cancel {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* ── Print modal ─────────────────────────────────────────────────────── */
+    #printOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #printOverlay.hidden {
+      display: none;
+    }
+
+    #printBox {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 400px;
+      max-height: 80dvh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    }
+
+    .print-class-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.84rem;
+      transition: background 0.1s;
+    }
+
+    .print-class-row:hover {
+      background: var(--border);
+    }
+
+    .print-class-row input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    .print-class-name {
+      flex: 1;
+    }
+
+    .print-cache-badge {
+      font-size: 0.7rem;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    /* ── Settings panel ──────────────────────────────────────────────────── */
+    #settingsOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #settingsOverlay.hidden {
+      display: none;
+    }
+
+    #settingsBox {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 440px;
+      max-height: 80dvh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface2);
+      z-index: 1;
+    }
+
+    .settings-header h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .settings-section {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-section:last-child {
+      border-bottom: none;
+    }
+
+    .settings-section h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+    }
+
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 12px;
+    }
+
+    .field-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .field-row label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .field-row input[type="text"],
+    .field-row input[type="number"],
+    .field-row input[type="password"] {
+      width: 100%;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .field-row input:focus {
+      border-color: var(--accent);
+    }
+
+    .threshold-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .aeries-note {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .aeries-disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .meta-field-row {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .meta-field-row .field-key {
+      font-size: 0.75rem;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 6px;
+      text-align: center;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Loading spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Phone — view-only mode ──────────────────────────────────────────── */
+    body.is-phone #applyGridBtn,
+    body.is-phone #saveRoomBtn,
+    body.is-phone #deleteRoomBtn,
+    body.is-phone #assignBtn,
+    body.is-phone #saveBtn,
+    body.is-phone #settingsBtn,
+    body.is-phone #printBtn,
+    body.is-phone .desk-remove,
+    body.is-phone #resizeOverlay,
+    body.is-phone .restore-btn {
+      display: none !important;
+    }
+
+    body.is-phone .desk.occupied {
+      cursor: default;
+    }
+
+    body.is-phone .desk.occupied:hover {
+      filter: none;
+      cursor: default;
+    }
+
+    body.is-phone #rowCount,
+    body.is-phone #colCount,
+    body.is-phone label[for] {
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    /* ── Tablet — tap-to-move mode ───────────────────────────────────────── */
+    body.is-tablet #applyGridBtn,
+    body.is-tablet #saveRoomBtn,
+    body.is-tablet #deleteRoomBtn,
+    body.is-tablet #editRoomBtn,
+    body.is-tablet #assignBtn,
+    body.is-tablet #saveBtn,
+    body.is-tablet #settingsBtn,
+    body.is-tablet #printBtn,
+    body.is-tablet .desk-remove,
+    body.is-tablet #resizeOverlay,
+    body.is-tablet .restore-btn {
+      display: none !important;
+    }
+
+    body.is-tablet #rowCount,
+    body.is-tablet #colCount,
+    body.is-tablet label[for] {
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    body.is-tablet .desk {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body.is-tablet .desk.occupied {
+      cursor: pointer;
+    }
+
+    body.is-tablet .student-chip {
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+    }
+
+    /* Selected desk ring */
+    .desk.occupied.selected {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      filter: brightness(1.15);
+    }
+
+    /* ── Tap confirm popover ─────────────────────────────────────────────── */
+    #tapConfirm {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      z-index: 500;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      min-width: 260px;
+      display: none;
+    }
+
+    #tapConfirm.show {
+      display: block;
+    }
+
+    #tapConfirm p {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .tap-confirm-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .tap-confirm-btns button {
+      padding: 12px 28px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      min-width: 100px;
+    }
+
+    #tapConfirmYes {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    #tapConfirmNo {
+      background: var(--surface);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      :root {
+        --desk-w: 90px;
+        --desk-h: 60px;
+        --sidebar-w: 160px;
+        --header-h: auto;
+      }
+
+      header {
+        flex-direction: column;
+        height: auto;
+        min-height: auto;
+        align-items: stretch;
+        padding: 0;
+      }
+
+      /* Row 1: brand + sign out already inline-styled; Row 2: wrap controls */
+      header > div:last-child {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 10px;
+      }
+
+      select { max-width: 140px; }
+
+      .divider-v { display: none; }
+
+      #toolbar { padding: 0 10px; }
+
+      #legend {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: auto;
+        padding: 6px 10px;
+        gap: 8px;
+      }
+
+      #sidebar {
+        --sidebar-w: 140px;
+        width: 140px;
+        min-width: 140px;
+      }
+
+      .student-chip { font-size: 0.72rem; padding: 4px 7px; }
+
+      #chartArea { padding: 12px; }
+
+      .desk-name { font-size: 0.7rem; }
+      .desk-grade { font-size: 0.65rem; }
+    }
+
+    @media (max-width: 480px) {
+      :root {
+        --desk-w: 76px;
+        --desk-h: 54px;
+      }
+
+      #sidebar { display: none; }
+
+      header > div:last-child select { max-width: 120px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Auth overlay ───────────────────────────────────────────────────────── -->
+  <div id="authOverlay">
+    <div class="gc-header">
+      <img src="logo.png" alt="CHS Technology Pathway" class="gc-logo" onerror="this.style.display='none'" />
+      <div>
+        <h1>GC Seat</h1>
+        <p class="subtitle">Seating Chart</p>
+      </div>
+    </div>
+    <div class="setup-box">
+      <h2>Google Classroom Seating Chart</h2>
+      <p style="font-size:13px;color:#5f6368;margin-bottom:1.25rem;">Connect your Google account to load your class rosters
+        and build seating arrangements.</p>
+      <button class="btn-connect" id="connectBtn" onclick="initGIS()">Connect with Google</button>
+      <div class="token-note">Read-only access — your data never leaves your browser.</div>
+      <div id="authError" style="font-size:13px;color:#ef4444;margin-top:10px;display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ── Header ────────────────────────────────────────────────────────────── -->
+  <header style="height:auto;min-height:auto;flex-direction:column;align-items:stretch;padding:0;">
+    <!-- Row 1: Brand + Sign out -->
+    <div style="display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);">
+      <a class="header-brand" href="#" onclick="return false;">
+        <img src="logo.png" alt="GC Seat" onerror="this.style.display='none'" />
+        GC Seat
+      </a>
+      <a href="#" onclick="signOutSeating(); return false;"
+        style="margin-left:auto;font-size:13px;color:var(--text-muted);text-decoration:none;">Sign out</a>
+    </div>
+    <!-- Row 2: Controls -->
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 16px;flex-wrap:wrap;">
+      <select id="courseSelect">
+        <option value="">— Select class —</option>
+      </select>
+
+      <div class="divider-v"></div>
+
+      <label style="font-size:0.82rem;color:var(--text-muted);">Rows</label>
+      <input type="number" id="rowCount" value="5" min="1" max="28" />
+      <label style="font-size:0.82rem;color:var(--text-muted);">Cols</label>
+      <input type="number" id="colCount" value="6" min="1" max="28" />
+      <button class="btn btn-ghost" id="applyGridBtn">Apply</button>
+
+      <div class="divider-v"></div>
+
+      <button class="btn btn-ghost" id="editRoomBtn" disabled>Edit Room</button>
+      <select id="roomSelect">
+        <option value="">— Room layout —</option>
+      </select>
+      <button class="btn btn-ghost" id="saveRoomBtn">Save Room</button>
+      <button class="btn btn-ghost" id="deleteRoomBtn" title="Delete room layout" style="padding:5px 9px;">✕</button>
+
+      <div class="divider-v"></div>
+      <div class="dd-wrap">
+        <button class="btn btn-ghost" id="assignBtn" disabled>Assign ▾</button>
+        <div class="dd-menu" id="assignMenu">
+          <button data-mode="alpha">Alphabetical (Last Name)</button>
+          <button data-mode="random">Random</button>
+          <hr />
+          <button data-mode="reset" class="danger">Reset — Clear All Seats</button>
+          <button data-mode="resetAttendance" class="danger">Reset — Clear Attendance (A/T/P)</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="saveBtn" disabled>Save Seating Chart</button>
+      <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
+      <button class="btn btn-ghost" id="printBtn">Print</button>
+      <button class="btn btn-ghost" id="settingsBtn" style="padding:5px 10px;" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Toolbar ────────────────────────────────────────────────────────────── -->
+  <div id="toolbar">
+    <span id="statusText" style="font-size:0.8rem;color:var(--text-dim);">Load a class to begin.</span>
+  </div>
+
+  <!-- ── Legend ────────────────────────────────────────────────────────────── -->
+  <div id="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>On track (&gt; 75%)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span>Watch (61–75%)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--red)"></span>At risk (≤ 60%)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--gray)"></span>No grade data</span>
+    <span id="legend-meta"></span>
+  </div>
+
+  <!-- ── Main ──────────────────────────────────────────────────────────────── -->
+  <div id="main">
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <h2>Roster</h2>
+        <button class="btn btn-ghost" id="toggleSidebarBtn" title="Hide roster"
+          style="padding:3px 8px;font-size:0.8rem;">◀</button>
+      </div>
+      <p id="rosterHint">Load a class to see students.</p>
+      <ul id="rosterList"></ul>
+    </div>
+    <div id="chartArea">
+      <button id="reopenTab" title="Show roster"
+        onclick="document.getElementById('toggleSidebarBtn').click()">▶</button>
+      <div id="gridWrapper">
+        <div id="grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Student picker modal ───────────────────────────────────────────────── -->
+  <div id="pickerOverlay" class="hidden">
+    <div id="pickerBox">
+      <h3>Place Student</h3>
+      <input type="text" id="pickerSearch" placeholder="Search…" autocomplete="off" />
+      <ul id="pickerList"></ul>
+      <div class="picker-cancel">
+        <button class="btn btn-ghost" id="pickerCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Print modal ─────────────────────────────────────────────────────────── -->
+  <div id="printOverlay" class="hidden">
+    <div id="printBox">
+      <div class="settings-header">
+        <h2>Print Seating Charts</h2>
+        <button class="btn btn-ghost" id="printCloseBtn" style="padding:4px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">Select classes to print. Cached classes
+          print instantly; others will load first.</p>
+        <div id="printClassList" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;">
+        </div>
+      </div>
+      <div style="padding:14px 20px;display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+        <span id="printStatus" style="font-size:0.8rem;color:var(--text-muted);margin-right:auto;"></span>
+        <button class="btn btn-ghost" id="printSelectAllBtn">Select All</button>
+        <button class="btn btn-primary" id="printGoBtn">Print</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Settings panel ─────────────────────────────────────────────────────── -->
+  <div id="settingsOverlay" class="hidden">
+    <div id="settingsBox">
+      <div class="settings-header">
+        <h2>Settings</h2>
+        <button class="btn btn-ghost" id="settingsCloseBtn" style="padding:4px 10px;">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Grade Thresholds</h3>
+        <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;">
+          Grade thresholds:<br>
+          🟢 On track &gt; 75% &nbsp;·&nbsp; 🟡 Watch 61–75% &nbsp;·&nbsp; 🔴 At risk ≤ 60%
+        </p>
+      </div>
+
+      <div class="settings-section">
+        <h3>Default Grid Size</h3>
+        <div class="threshold-row">
+          <div class="field-row">
+            <label>Rows</label>
+            <input type="number" id="defaultRows" value="5" min="1" max="28" />
+          </div>
+          <div class="field-row">
+            <label>Columns</label>
+            <input type="number" id="defaultCols" value="6" min="1" max="28" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Student Data Fields</h3>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;line-height:1.5;">
+          Label the 4 extended data fields. These appear as tags on each seat card.
+          Currently populated manually or via Aeries API when connected.
+        </p>
+        <div class="meta-field-row">
+          <span class="field-key">field1</span>
+          <input type="text" id="metaLabel1" placeholder="e.g. Lang. Fluency" />
+        </div>
+        <div class="meta-field-row">
+          <span class="field-key">field2</span>
+          <input type="text" id="metaLabel2" placeholder="e.g. Program (EL, RSP…)" />
+        </div>
+        <div class="meta-field-row">
+          <span class="field-key">field3</span>
+          <input type="text" id="metaLabel3" placeholder="e.g. Attendance %" />
+        </div>
+        <div class="meta-field-row">
+          <span class="field-key">field4</span>
+          <input type="text" id="metaLabel4" placeholder="e.g. IEP / 504" />
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Aeries API <span id="aeriesStatusLabel" style="font-size:0.7rem;color:var(--text-dim);font-weight:400;margin-left:6px;">— Not tested</span></h3>
+        <div class="aeries-note">
+          GC Seat never talks to Aeries directly and never holds the AERIES-CERT.
+          It calls a small local backend (gcseat-backend) that holds the cert and proxies to Aeries —
+          today that's a local mock server for development; later it can point at the real district Aeries API.
+        </div>
+        <div class="field-row">
+          <label>gcseat-backend URL</label>
+          <input type="text" id="aeriesBackendUrl" placeholder="http://localhost:3001" />
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" id="testAeriesBtn" style="flex:1;justify-content:center;">Test Connection</button>
+          <button class="btn btn-primary" id="syncAeriesBtn" style="flex:1;justify-content:center;">Sync Current Class</button>
+        </div>
+        <p id="aeriesSyncStatus" style="font-size:0.75rem;color:var(--text-dim);margin-top:8px;line-height:1.4;"></p>
+      </div>
+
+      <div class="settings-section" style="border-bottom:none;">
+        <button class="btn btn-primary" id="saveSettingsBtn" style="width:100%;justify-content:center;">Save
+          Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tap confirm popover (tablet mode) ─────────────────────────────────── -->
+  <div id="tapConfirm">
+    <p id="tapConfirmMsg"></p>
+    <div class="tap-confirm-btns">
+      <button id="tapConfirmYes">✓ Confirm</button>
+      <button id="tapConfirmNo">✗ Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── Toast ──────────────────────────────────────────────────────────────── -->
+  <div id="toast"></div>
+
+  <!-- ── Google Identity Services ──────────────────────────────────────────── -->
+  <script src="config.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONFIG & STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const DESK_W = 118;
+    const DESK_H = 76;
+    const GAP = 10;
+    const MIN_SIZE = 16;
+    const IS_TOUCH = window.matchMedia('(pointer: coarse)').matches;
+    const IS_TABLET = IS_TOUCH && window.screen.width >= 768;
+    const IS_PHONE = IS_TOUCH && window.screen.width < 768;
+    if (IS_PHONE) document.body.classList.add('is-phone');
+    if (IS_TABLET) document.body.classList.add('is-tablet');
+
+    const GC_SCOPES = [
+      'https://www.googleapis.com/auth/classroom.courses.readonly',
+      'https://www.googleapis.com/auth/classroom.rosters.readonly',
+      'https://www.googleapis.com/auth/classroom.coursework.students.readonly',
+      'https://www.googleapis.com/auth/classroom.student-submissions.students.readonly',
+      'https://www.googleapis.com/auth/classroom.profile.emails',
+    ].join(' ');
+
+    // Settings (loaded from localStorage)
+    let settings = {
+      clientId: '',
+      defaultRows: 5,
+      defaultCols: 6,
+      metaLabels: { field1: '', field2: '', field3: '', field4: '' },
+      aeriesBackendUrl: 'http://localhost:3001',
+    };
+
+    // Runtime state
+    let accessToken = null;
+    let students = [];   // [{ id, firstName, lastName, grade, meta:{field1..4} }]
+    let seats = {};   // { "r-c": studentId | null }
+    let attendanceByCourse = getAttendanceStore();   // { courseId: { studentId: 'present' | 'absent' | 'tardy' } } — synced to Drive, last write wins per course
+    let attendanceUpdatedAt = getAttendanceMeta();   // { courseId: msEpoch } — used to resolve which browser's attendance is newer on merge
+    let attendance = {};   // alias for attendanceByCourse[currentCourseId]
+    let rows = 5;
+    let cols = 6;
+    let colWidths = [];
+    let rowHeights = [];
+    let currentCourseId = null;
+    let isDirty = false;
+    let pickerTargetKey = null;
+    let desks = new Set();
+    let roomEditMode = false;
+    let privateMode = true;   // starts hidden each load — grades/risk colors revealed only after the teacher clicks "Public View"
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DOM REFS
+    // ═══════════════════════════════════════════════════════════════════════════
+    const authOverlay = document.getElementById('authOverlay');
+    const courseSelect = document.getElementById('courseSelect');
+    const rowInput = document.getElementById('rowCount');
+    const colInput = document.getElementById('colCount');
+    const applyGridBtn = document.getElementById('applyGridBtn');
+    const roomSelect = document.getElementById('roomSelect');
+    const saveRoomBtn = document.getElementById('saveRoomBtn');
+    const deleteRoomBtn = document.getElementById('deleteRoomBtn');
+    const assignBtn = document.getElementById('assignBtn');
+    const editRoomBtn = document.getElementById('editRoomBtn');
+    const assignMenu = document.getElementById('assignMenu');
+    const saveBtn = document.getElementById('saveBtn');
+    const privacyToggleBtn = document.getElementById('privacyToggleBtn');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+    const statusText = document.getElementById('statusText');
+    const sidebar = document.getElementById('sidebar');
+    const rosterList = document.getElementById('rosterList');
+    const rosterHint = document.getElementById('rosterHint');
+    const grid = document.getElementById('grid');
+    const gridWrapper = document.getElementById('gridWrapper');
+    const pickerOverlay = document.getElementById('pickerOverlay');
+    const pickerSearch = document.getElementById('pickerSearch');
+    const pickerList = document.getElementById('pickerList');
+    const pickerCancelBtn = document.getElementById('pickerCancelBtn');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SETTINGS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function loadSettings() {
+      try {
+        const s = JSON.parse(localStorage.getItem('gcseat-settings') || '{}');
+        settings = { ...settings, ...s };
+        if (s.metaLabels) settings.metaLabels = { ...settings.metaLabels, ...s.metaLabels };
+      } catch { }
+      applySettings();
+    }
+
+    function applySettings() {
+      rows = settings.defaultRows;
+      cols = settings.defaultCols;
+      rowInput.value = rows;
+      colInput.value = cols;
+      updateLegendMeta();
+    }
+
+    function openSettings() {
+      document.getElementById('defaultRows').value = settings.defaultRows;
+      document.getElementById('defaultCols').value = settings.defaultCols;
+      document.getElementById('metaLabel1').value = settings.metaLabels.field1;
+      document.getElementById('metaLabel2').value = settings.metaLabels.field2;
+      document.getElementById('metaLabel3').value = settings.metaLabels.field3;
+      document.getElementById('metaLabel4').value = settings.metaLabels.field4;
+      document.getElementById('aeriesBackendUrl').value = settings.aeriesBackendUrl || '';
+      settingsOverlay.classList.remove('hidden');
+    }
+
+    function saveSettings() {
+      settings.defaultRows = parseInt(document.getElementById('defaultRows').value) || 5;
+      settings.defaultCols = parseInt(document.getElementById('defaultCols').value) || 6;
+      settings.metaLabels = {
+        field1: document.getElementById('metaLabel1').value.trim(),
+        field2: document.getElementById('metaLabel2').value.trim(),
+        field3: document.getElementById('metaLabel3').value.trim(),
+        field4: document.getElementById('metaLabel4').value.trim(),
+      };
+      settings.aeriesBackendUrl = document.getElementById('aeriesBackendUrl').value.trim();
+      localStorage.setItem('gcseat-settings', JSON.stringify(settings));
+      settingsOverlay.classList.add('hidden');
+      updateLegendMeta();
+      buildGrid();
+      debouncedSyncToDrive();
+      showToast('Settings saved.');
+    }
+
+    function updateLegendMeta() {
+      const labels = Object.values(settings.metaLabels).filter(Boolean);
+      const el = document.getElementById('legend-meta');
+      el.textContent = labels.length ? 'Tags: ' + labels.join(' · ') : '';
+    }
+
+    settingsBtn.addEventListener('click', openSettings);
+    settingsCloseBtn.addEventListener('click', () => settingsOverlay.classList.add('hidden'));
+    saveSettingsBtn.addEventListener('click', saveSettings);
+    settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) settingsOverlay.classList.add('hidden'); });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AERIES INTEGRATION — via gcseat-backend, which holds the AERIES-CERT.
+    // This page never sees the cert and never calls Aeries directly.
+    // ═══════════════════════════════════════════════════════════════════════════
+    function currentAeriesBackendUrl() {
+      const fromField = document.getElementById('aeriesBackendUrl').value.trim();
+      return (fromField || settings.aeriesBackendUrl || 'http://localhost:3001').replace(/\/$/, '');
+    }
+
+    async function testAeriesConnection() {
+      const label = document.getElementById('aeriesStatusLabel');
+      label.textContent = '— Testing…';
+      label.style.color = 'var(--text-dim)';
+      try {
+        const res = await fetch(currentAeriesBackendUrl() + '/health');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        label.textContent = `— Connected · ${data.aeriesMode || 'unknown'} mode`;
+        label.style.color = 'var(--green)';
+      } catch (err) {
+        label.textContent = '— Not reachable (' + err.message + ')';
+        label.style.color = '#ef4444';
+      }
+    }
+
+    async function syncAeriesData() {
+      const statusEl = document.getElementById('aeriesSyncStatus');
+      if (!currentCourseId || !students.length) {
+        statusEl.textContent = 'Load a class with students first.';
+        return;
+      }
+      const base = currentAeriesBackendUrl();
+      statusEl.innerHTML = `<span class="spinner"></span> Syncing ${students.length} students…`;
+      try {
+        const names = students.map(s => `${s.firstName} ${s.lastName}`.trim());
+        const res = await fetch(base + '/api/roster-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const { results } = await res.json();
+
+        let matched = 0, failed = 0;
+        students.forEach(s => {
+          const key = `${s.firstName} ${s.lastName}`.trim();
+          const r = results[key];
+          if (!r || !r.ok) { failed++; return; }
+          matched++;
+          const info = r.studentInfo || {};
+          const programs = r.programs || [];
+          // FERPA-safe: program CODE only (e.g. "SPED", "504"), never case notes.
+          s.meta.field1 = info.LanguageFluencyCode || '';
+          s.meta.field2 = programs.map(p => p.ProgramCode).join(', ');
+          s.meta.field4 = programs.some(p => p.ProgramCode === 'SPED') ? 'IEP'
+            : programs.some(p => p.ProgramCode === '504') ? '504' : '';
+        });
+
+        // Label the tags automatically if the teacher hasn't already renamed them.
+        if (!settings.metaLabels.field1) settings.metaLabels.field1 = 'Lang. Fluency';
+        if (!settings.metaLabels.field2) settings.metaLabels.field2 = 'Program';
+        if (!settings.metaLabels.field4) settings.metaLabels.field4 = 'IEP/504';
+        localStorage.setItem('gcseat-settings', JSON.stringify(settings));
+        updateLegendMeta();
+
+        buildGrid();
+        renderRoster();
+        debouncedSyncToDrive();
+        statusEl.textContent = `Synced: ${matched} matched, ${failed} not found.`;
+        showToast('Aeries data synced.');
+      } catch (err) {
+        statusEl.textContent = `Sync failed: ${err.message} — is gcseat-backend running?`;
+      }
+    }
+
+    document.getElementById('testAeriesBtn').addEventListener('click', testAeriesConnection);
+    document.getElementById('syncAeriesBtn').addEventListener('click', syncAeriesData);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTH
+    // ═══════════════════════════════════════════════════════════════════════════
+    function getClientId() {
+      // Use CONFIG.clientId from config.js or settings fallback
+      if (typeof CONFIG !== 'undefined' && CONFIG.clientId) return CONFIG.clientId;
+      return settings.clientId || '';
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById('authError');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function initGIS() {
+      const clientId = getClientId();
+      if (!clientId) {
+        showAuthError('Client ID not found. Add it to config.js or open ⚙ Settings.');
+        return;
+      }
+      if (!window.google || !window.google.accounts) {
+        showAuthError('Google Identity Services not ready. Please refresh.');
+        return;
+      }
+
+      document.getElementById('connectBtn').disabled = true;
+
+      try {
+        google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: GC_SCOPES,
+          callback: (resp) => {
+            document.getElementById('connectBtn').disabled = false;
+            if (resp.error) { showAuthError('Auth error: ' + resp.error); return; }
+            accessToken = resp.access_token;
+            sessionStorage.setItem('gcseat-access-token', accessToken);
+            authOverlay.classList.add('hidden');
+            initApp();
+          },
+          error_callback: (err) => {
+            document.getElementById('connectBtn').disabled = false;
+            showAuthError('Auth error: ' + (err.message || err.type));
+          }
+        }).requestAccessToken({ prompt: 'select_account' });
+      } catch (e) {
+        document.getElementById('connectBtn').disabled = false;
+        showAuthError('Error: ' + e.message);
+      }
+    }
+
+    // On load — restore token or show auth screen
+    window.addEventListener('load', () => {
+      loadSettings();
+      loadRoomOptions();
+
+      // Check for token already in sessionStorage (page refresh)
+      const stored = sessionStorage.getItem('gcseat-access-token');
+      if (stored) {
+        accessToken = stored;
+        authOverlay.classList.add('hidden');
+        initApp();
+        return;
+      }
+
+      // Auth screen is shown by default; connectBtn calls initGIS()
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GOOGLE CLASSROOM API
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function gcFetch(path) {
+      const res = await fetch(`https://classroom.googleapis.com${path}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.status === 401) {
+        sessionStorage.removeItem('gcseat-access-token');
+        authOverlay.classList.remove('hidden');
+        throw new Error('Token expired — please sign in again.');
+      }
+      if (!res.ok) throw new Error(`GC API error ${res.status}`);
+      return res.json();
+    }
+
+    async function initApp() {
+      setStatus('<span class="spinner"></span> Loading classes…');
+      // Start Drive sync in background — don't block UI
+      initDriveSync().catch(() => { });
+      try {
+        const data = await gcFetch('/v1/courses?teacherId=me&courseStates=ACTIVE');
+        const courses = data.courses || [];
+        courseSelect.innerHTML = '<option value="">— Select class —</option>';
+        courses.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name + (c.section ? ` · ${c.section}` : '');
+          courseSelect.appendChild(opt);
+        });
+        setStatus(`${courses.length} classes loaded.`);
+
+        // Auto-select the class this teacher was last working on
+        const lastCourse = localStorage.getItem('gcseat-last-course');
+        if (lastCourse && courses.find(c => c.id === lastCourse)) {
+          courseSelect.value = lastCourse;
+          loadCourse(lastCourse);
+        }
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+    }
+
+    // ── Grade cache helpers ───────────────────────────────────────────────────
+    const GRADE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+    function gradesCacheKey(courseId) { return `gcseat-grades-${courseId}`; }
+
+    function loadCachedGrades(courseId) {
+      try {
+        const raw = localStorage.getItem(gradesCacheKey(courseId));
+        if (!raw) return null;
+        const { ts, grades } = JSON.parse(raw);
+        if (Date.now() - ts > GRADE_CACHE_TTL) return null;
+        return grades;
+      } catch { return null; }
+    }
+
+    function saveCachedGrades(courseId, grades) {
+      try {
+        localStorage.setItem(gradesCacheKey(courseId), JSON.stringify({ ts: Date.now(), grades }));
+      } catch { }
+    }
+
+    // ── Fetch all submissions in parallel ─────────────────────────────────────
+    async function fetchGrades(courseId, allCW) {
+      // Build a maxPoints lookup from coursework
+      const maxPointsMap = {};
+      allCW.forEach(cw => { if (cw.maxPoints) maxPointsMap[cw.id] = cw.maxPoints; });
+
+      // Single wildcard call fetches ALL submissions across ALL assignments at once
+      const submissionsMap = {};
+      let pageToken = '';
+      do {
+        const url = `/v1/courses/${courseId}/courseWork/-/studentSubmissions?pageSize=250` +
+          (pageToken ? `&pageToken=${pageToken}` : '');
+        const data = await gcFetch(url);
+        (data.studentSubmissions || []).forEach(sub => {
+          const maxPoints = maxPointsMap[sub.courseWorkId];
+          if (!maxPoints) return; // ungraded assignment, skip
+          if ((sub.state === 'TURNED_IN' || sub.state === 'RETURNED') && sub.assignedGrade != null) {
+            if (!submissionsMap[sub.userId]) submissionsMap[sub.userId] = [];
+            submissionsMap[sub.userId].push({ earned: sub.assignedGrade, max: maxPoints });
+          }
+        });
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+
+      const grades = {};
+      for (const [userId, subs] of Object.entries(submissionsMap)) {
+        const totalEarned = subs.reduce((a, b) => a + b.earned, 0);
+        const totalMax = subs.reduce((a, b) => a + b.max, 0);
+        grades[userId] = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : null;
+      }
+      return grades;
+    }
+
+    // ── Apply grades and refresh UI ────────────────────────────────────────────
+    function applyGrades(grades) {
+      students.forEach(s => { s.grade = grades[s.id] ?? null; });
+      buildGrid();
+      renderRoster();
+    }
+
+    async function loadCourse(courseId) {
+      currentCourseId = courseId;
+      localStorage.setItem('gcseat-last-course', courseId);
+      seats = {};
+      students = [];
+      if (!attendanceByCourse[courseId]) attendanceByCourse[courseId] = {};
+      attendance = attendanceByCourse[courseId];
+      setStatus('<span class="spinner"></span> Loading roster…');
+      assignBtn.disabled = true;
+      editRoomBtn.disabled = true;
+      saveBtn.disabled = true;
+
+      try {
+        // 1. Fetch roster and coursework in parallel
+        const [allStudents, allCW] = await Promise.all([
+          (async () => {
+            let pageToken = '', results = [];
+            do {
+              const url = `/v1/courses/${courseId}/students?pageSize=100` + (pageToken ? `&pageToken=${pageToken}` : '');
+              const data = await gcFetch(url);
+              results = results.concat(data.students || []);
+              pageToken = data.nextPageToken || '';
+            } while (pageToken);
+            return results;
+          })(),
+          (async () => {
+            let cwPage = '', results = [];
+            do {
+              const url = `/v1/courses/${courseId}/courseWork?pageSize=100` + (cwPage ? `&pageToken=${cwPage}` : '');
+              const data = await gcFetch(url);
+              results = results.concat(data.courseWork || []);
+              cwPage = data.nextPageToken || '';
+            } while (cwPage);
+            return results;
+          })(),
+        ]);
+
+        // 2. Build student objects with null grades initially
+        students = allStudents.map(s => {
+          const profile = s.profile || {};
+          const name = profile.name || {};
+          return {
+            id: s.userId,
+            firstName: name.givenName || '',
+            lastName: name.familyName || '',
+            email: profile.emailAddress || '',
+            grade: null,
+            meta: { field1: null, field2: null, field3: null, field4: null },
+          };
+        });
+
+        // 3. Restore saved layout
+        roomSelect.value = ''; // always reset room when switching classes
+        deleteRoomBtn.disabled = true;
+        const saved = loadSavedLayout(courseId);
+        if (saved) {
+          colWidths = saved.colWidths || [];
+          rowHeights = saved.rowHeights || [];
+          rows = saved.rows || rows;
+          cols = saved.cols || cols;
+          rowInput.value = rows;
+          colInput.value = cols;
+          seats = saved.seats || {};
+          const roomLayout = saved.room ? getRooms()[saved.room] : null;
+          if (roomLayout?.desks) {
+            desks = new Set(roomLayout.desks);
+          } else if (saved.desks) {
+            desks = new Set(saved.desks);
+          } else {
+            desks = new Set();
+            for (let r2 = 0; r2 < rows; r2++)
+              for (let c2 = 0; c2 < cols; c2++)
+                desks.add(`${r2}-${c2}`);
+          }
+          const validIds = new Set(students.map(s => s.id));
+          for (const k of Object.keys(seats)) {
+            if (seats[k] && !validIds.has(seats[k])) delete seats[k];
+          }
+
+          // Restore room — try saved.room first, then match by dimensions
+          let restoredRoom = saved.room || '';
+          if (!restoredRoom) {
+            // Try to find a room whose colWidths/rowHeights match the saved layout
+            const rooms = getRooms();
+            for (const [name, layout] of Object.entries(rooms)) {
+              if (layout.rows === saved.rows && layout.cols === saved.cols &&
+                JSON.stringify(layout.colWidths) === JSON.stringify(saved.colWidths) &&
+                JSON.stringify(layout.rowHeights) === JSON.stringify(saved.rowHeights)) {
+                restoredRoom = name;
+                break;
+              }
+            }
+          }
+          if (restoredRoom) {
+            roomSelect.value = restoredRoom;
+            deleteRoomBtn.disabled = !roomSelect.value;
+          }
+        } else {
+          colWidths = [];
+          rowHeights = [];
+          desks = new Set();
+        }
+
+        // 4. Show roster immediately — teacher can start arranging right away
+        buildGrid();
+        renderRoster();
+        rosterHint.style.display = 'none';
+        assignBtn.disabled = false;
+        editRoomBtn.disabled = false;
+        saveBtn.disabled = !isDirty;
+        isDirty = false;
+
+        // 5. Load grades — from cache instantly, then refresh in background
+        const cached = loadCachedGrades(courseId);
+        if (cached) {
+          applyGrades(cached);
+          // Silently refresh cache in background
+          fetchGrades(courseId, allCW).then(grades => {
+            saveCachedGrades(courseId, grades);
+            applyGrades(grades);
+          }).catch(() => { });
+        } else {
+          setStatus(`<span class="spinner"></span> ${students.length} students · calculating grades…`);
+          const grades = await fetchGrades(courseId, allCW);
+          saveCachedGrades(courseId, grades);
+          applyGrades(grades);
+        }
+
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+        showToast(err.message);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GRADE HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function tierClass(student) {
+      if (student.grade === null) return 'tier-gray';
+      if (student.grade > 75) return 'tier-green';  // On track  > 75%
+      if (student.grade > 60) return 'tier-yellow'; // Watch     61–75%
+      return 'tier-red';                             // At risk   ≤ 60%
+    }
+
+    function gradeLabel(student) {
+      return student.grade !== null ? student.grade + '%' : '—';
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ATTENDANCE (click a seated student to cycle: default → present → absent → tardy → default)
+    // ═══════════════════════════════════════════════════════════════════════════
+    function attendanceClass(studentId) {
+      const state = attendance[studentId];
+      if (state === 'absent') return 'att-absent';
+      if (state === 'tardy') return 'att-tardy';
+      if (state === 'present') return 'att-present';
+      return '';
+    }
+
+    function cycleAttendance(studentId) {
+      const state = attendance[studentId];
+      if (state === 'present') attendance[studentId] = 'absent';
+      else if (state === 'absent') attendance[studentId] = 'tardy';
+      else if (state === 'tardy') delete attendance[studentId];
+      else attendance[studentId] = 'present';
+      saveAttendanceStore();
+      buildGrid();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GRID
+    // ═══════════════════════════════════════════════════════════════════════════
+    function buildGrid() {
+      if (colWidths.length !== cols) colWidths = Array(cols).fill(DESK_W);
+      if (rowHeights.length !== rows) rowHeights = Array(rows).fill(DESK_H);
+
+      applyGridTemplate();
+      grid.innerHTML = '';
+
+      let deskNum = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const key = `${r}-${c}`;
+          const isDesk = desks.has(key);
+          const desk = document.createElement('div');
+          desk.dataset.key = key;
+
+          if (!isDesk) {
+            desk.className = 'desk is-space';
+            if (roomEditMode) desk.addEventListener('click', () => toggleDesk(key));
+          } else if (roomEditMode) {
+            desk.className = 'desk';
+            if (!seats[key]) desk.addEventListener('click', () => toggleDesk(key));
+          } else {
+            desk.className = 'desk';
+            const studentId = seats[key];
+            if (studentId) {
+              const student = students.find(s => s.id === studentId);
+              if (student) setDeskOccupied(desk, student);
+              else setDeskEmpty(desk, key);
+            } else {
+              setDeskEmpty(desk, key);
+            }
+          }
+          if (isDesk) {
+            deskNum++;
+            const numBadge = document.createElement('span');
+            numBadge.className = 'desk-number-badge';
+            numBadge.textContent = deskNum;
+            desk.appendChild(numBadge);
+          }
+          grid.appendChild(desk);
+        }
+      }
+      buildResizeHandles();
+    }
+
+    function toggleDesk(key) {
+      if (desks.has(key)) {
+        desks.delete(key);
+        if (seats[key]) delete seats[key];
+      } else {
+        desks.add(key);
+      }
+      markDirty();
+      buildGrid();
+      renderRoster();
+    }
+
+    function setDeskEmpty(desk, key) {
+      desk.textContent = '+';
+      if (IS_PHONE) return; // view-only on phone
+      if (IS_TABLET) {
+        // On tablet, empty desk is a drop target for selected student
+        addTabletTapHandler(desk, key);
+        return;
+      }
+      desk.addEventListener('click', () => openPicker(key));
+      desk.addEventListener('dragover', e => { e.preventDefault(); desk.classList.add('drag-over'); });
+      desk.addEventListener('dragleave', () => desk.classList.remove('drag-over'));
+      desk.addEventListener('drop', e => {
+        e.preventDefault();
+        desk.classList.remove('drag-over');
+        placeStudent(e.dataTransfer.getData('studentId'), key);
+      });
+    }
+
+    function setDeskOccupied(desk, student) {
+      const tier = privateMode ? '' : tierClass(student);
+      const att = attendanceClass(student.id);
+      desk.className = `desk occupied ${tier}${att ? ' ' + att : ''}`;
+      desk.draggable = !IS_TOUCH;
+
+      // Click to cycle attendance status (mouse only — tablet cycles via a plain tap, handled in addTabletTapHandler)
+      if (!IS_TOUCH) {
+        desk.addEventListener('click', e => {
+          if (e.target.closest('a')) return; // don't cycle when clicking the email link
+          cycleAttendance(student.id);
+        });
+      }
+
+      // Tablet tap handler (long-press selects for move; plain tap cycles attendance)
+      if (IS_TABLET) {
+        addTabletTapHandler(desk, desk.dataset.key);
+      }
+
+      // Build meta tags
+      const tags = Object.entries(settings.metaLabels)
+        .filter(([k, label]) => label && student.meta[k])
+        .map(([k]) => `<span class="desk-tag">${student.meta[k]}</span>`)
+        .join('');
+
+      const nameHtml = (student.email && !IS_TOUCH)
+        ? `<a href="https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(student.email)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;cursor:pointer;">${student.firstName}<br>${student.lastName}</a>`
+        : `${student.firstName}<br>${student.lastName}`;
+
+      const attState = attendance[student.id];
+      const attBadge = attState === 'absent' ? '<span class="desk-att-badge" title="Absent">A</span>'
+        : attState === 'tardy' ? '<span class="desk-att-badge" title="Tardy">T</span>'
+        : attState === 'present' ? '<span class="desk-att-badge" title="Present">P</span>'
+        : '';
+
+      desk.innerHTML = `
+    <button class="desk-remove" title="Remove">✕</button>
+    ${attBadge}
+    <div class="desk-grade">${privateMode ? '' : gradeLabel(student)}</div>
+    <div class="desk-name">${nameHtml}</div>
+    ${tags ? `<div class="desk-meta-tags">${tags}</div>` : ''}
+  `;
+
+      desk.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('studentId', student.id);
+        setTimeout(() => desk.classList.add('dragging'), 0);
+      });
+      desk.addEventListener('dragend', () => desk.classList.remove('dragging'));
+
+      desk.addEventListener('dragover', e => { e.preventDefault(); desk.classList.add('drag-over'); });
+      desk.addEventListener('dragleave', () => desk.classList.remove('drag-over'));
+      desk.addEventListener('drop', e => {
+        e.preventDefault();
+        desk.classList.remove('drag-over');
+        placeStudent(e.dataTransfer.getData('studentId'), desk.dataset.key);
+      });
+
+      desk.querySelector('.desk-remove').addEventListener('click', e => {
+        e.stopPropagation();
+        seats[desk.dataset.key] = null;
+        markDirty();
+        buildGrid();
+        renderRoster();
+      });
+    }
+
+    function applyGridTemplate() {
+      // Rows/cols with no desks display at half size; desk data is unchanged
+      const activeCol = new Set();
+      const activeRow = new Set();
+      for (const key of desks) {
+        const [r, c] = key.split('-').map(Number);
+        activeRow.add(r);
+        activeCol.add(c);
+      }
+      const dispCols = colWidths.map((w, c) => activeCol.has(c) ? w : Math.round(w / 2));
+      const dispRows = rowHeights.map((h, r) => activeRow.has(r) ? h : Math.round(h / 2));
+      grid.style.gridTemplateColumns = dispCols.map(w => w + 'px').join(' ');
+      grid.style.gridTemplateRows = dispRows.map(h => h + 'px').join(' ');
+      grid.style.gap = GAP + 'px';
+    }
+
+    function placeStudent(studentId, deskKey) {
+      if (!studentId || !deskKey) return;
+      // Find the student's current seat
+      let fromKey = null;
+      for (const [k, v] of Object.entries(seats)) {
+        if (v === studentId) { fromKey = k; break; }
+      }
+      // Swap — if destination is occupied, move that student to the source seat
+      const occupantId = seats[deskKey] || null;
+      seats[deskKey] = studentId;
+      if (fromKey) seats[fromKey] = occupantId; // swap occupant back
+      markDirty();
+      buildGrid();
+      renderRoster();
+    }
+
+    function restoreCell(r, c) {
+      if (!confirm('Restore this cell to a full desk?')) return;
+      if (colWidths[c] < MIN_SIZE * 2) colWidths[c] = DESK_W;
+      if (rowHeights[r] < MIN_SIZE * 2) rowHeights[r] = DESK_H;
+      buildGrid();
+    }
+
+    // ── Resize handles ──────────────────────────────────────────────────────────
+    function buildResizeHandles() {
+      const existing = document.getElementById('resizeOverlay');
+      if (existing) existing.remove();
+      return; // column/row resizing disabled
+      const overlay = document.createElement('div');
+      overlay.id = 'resizeOverlay';
+
+      let x = 0;
+      for (let c = 0; c < cols - 1; c++) {
+        x += colWidths[c];
+        const h = makeHandle('col-handle', 'left', x + GAP / 2 - 5 + 'px');
+        h.dataset.col = c;
+        addColResize(h);
+        overlay.appendChild(h);
+        x += GAP;
+      }
+      let y = 0;
+      for (let r = 0; r < rows - 1; r++) {
+        y += rowHeights[r];
+        const h = makeHandle('row-handle', 'top', y + GAP / 2 - 5 + 'px');
+        h.dataset.row = r;
+        addRowResize(h);
+        overlay.appendChild(h);
+        y += GAP;
+      }
+      gridWrapper.appendChild(overlay);
+    }
+
+    function makeHandle(cls, side, pos) {
+      const h = document.createElement('div');
+      h.className = 'resize-handle ' + cls;
+      h.style[side] = pos;
+      return h;
+    }
+
+    function repositionHandles() {
+      const overlay = document.getElementById('resizeOverlay');
+      if (!overlay) return;
+      let x = 0;
+      overlay.querySelectorAll('.col-handle').forEach((h, i) => {
+        x += colWidths[i];
+        h.style.left = (x + GAP / 2 - 5) + 'px';
+        x += GAP;
+      });
+      let y = 0;
+      overlay.querySelectorAll('.row-handle').forEach((h, i) => {
+        y += rowHeights[i];
+        h.style.top = (y + GAP / 2 - 5) + 'px';
+        y += GAP;
+      });
+    }
+
+    function updateAisleClasses() {
+      grid.querySelectorAll('.desk').forEach(desk => {
+        const [r, c] = desk.dataset.key.split('-').map(Number);
+        const isAisle = colWidths[c] < MIN_SIZE * 2 || rowHeights[r] < MIN_SIZE * 2;
+        desk.classList.toggle('is-aisle', isAisle);
+        if (isAisle && desk.textContent === '+') desk.textContent = '';
+      });
+    }
+
+    function addColResize(handle) {
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault();
+        handle.classList.add('active');
+        const col = parseInt(handle.dataset.col);
+        const startX = e.clientX, startW = colWidths[col];
+        const move = e => {
+          colWidths[col] = Math.max(MIN_SIZE, startW + (e.clientX - startX));
+          applyGridTemplate();
+          repositionHandles();
+          updateAisleClasses();
+        };
+        const up = () => {
+          handle.classList.remove('active');
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+          buildGrid();
+          renderRoster();
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    }
+
+    function addRowResize(handle) {
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault();
+        handle.classList.add('active');
+        const r = parseInt(handle.dataset.row);
+        const startY = e.clientY, startH = rowHeights[r];
+        const move = e => {
+          rowHeights[r] = Math.max(MIN_SIZE, startH + (e.clientY - startY));
+          applyGridTemplate();
+          repositionHandles();
+          updateAisleClasses();
+        };
+        const up = () => {
+          handle.classList.remove('active');
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+          buildGrid();
+          renderRoster();
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROSTER SIDEBAR
+    // ═══════════════════════════════════════════════════════════════════════════
+    function renderRoster() {
+      rosterList.innerHTML = '';
+      const placedIds = new Set(Object.values(seats).filter(Boolean));
+      const sorted = [...students].sort((a, b) =>
+        (placedIds.has(a.id) - placedIds.has(b.id)) ||
+        a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+      );
+      sorted.forEach(student => {
+        const placed = placedIds.has(student.id);
+        const li = document.createElement('li');
+        const chip = document.createElement('div');
+        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}`;
+        chip.textContent = `${student.lastName}, ${student.firstName}`;
+        chip.title = gradeLabel(student);
+        if (!placed) {
+          chip.draggable = !IS_TOUCH;
+          if (!IS_TOUCH) {
+            chip.addEventListener('dragstart', e => e.dataTransfer.setData('studentId', student.id));
+          }
+          if (IS_TABLET) {
+            chip.addEventListener('touchend', e => {
+              e.preventDefault();
+              // If this chip is already selected, deselect
+              if (selectedRosterStudentId === student.id) {
+                clearTabletSelection();
+                return;
+              }
+              // Select this student, clear any desk selection
+              clearTabletSelection();
+              selectedRosterStudentId = student.id;
+              chip.classList.add('chip-selected');
+            });
+          }
+        }
+        // Re-highlight if this student was previously selected
+        if (IS_TABLET && selectedRosterStudentId === student.id && !placed) {
+          chip.classList.add('chip-selected');
+        }
+        li.appendChild(chip);
+        rosterList.appendChild(li);
+      });
+      // Keep status count current
+      if (students.length) {
+        const unseated = students.length - placedIds.size;
+        setStatus(`${students.length} students · ${unseated} unseated`);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STUDENT PICKER MODAL
+    // ═══════════════════════════════════════════════════════════════════════════
+    function openPicker(deskKey) {
+      if (!students.length) return;
+      pickerTargetKey = deskKey;
+      const placedIds = new Set(Object.values(seats).filter(Boolean));
+      const unplaced = students
+        .filter(s => !placedIds.has(s.id))
+        .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+
+      if (!unplaced.length) { showToast('All students are seated.'); return; }
+
+      renderPickerList(unplaced);
+      pickerSearch.value = '';
+      pickerOverlay.classList.remove('hidden');
+      pickerSearch.focus();
+    }
+
+    function renderPickerList(list) {
+      pickerList.innerHTML = '';
+      list.forEach(student => {
+        const li = document.createElement('li');
+        li.className = `picker-item ${tierClass(student)}`;
+        li.textContent = `${student.lastName}, ${student.firstName}  ${gradeLabel(student)}`;
+        li.addEventListener('click', () => {
+          placeStudent(student.id, pickerTargetKey);
+          pickerOverlay.classList.add('hidden');
+        });
+        pickerList.appendChild(li);
+      });
+    }
+
+    pickerSearch.addEventListener('input', () => {
+      const q = pickerSearch.value.toLowerCase();
+      const placedIds = new Set(Object.values(seats).filter(Boolean));
+      const filtered = students
+        .filter(s => !placedIds.has(s.id))
+        .filter(s => `${s.lastName} ${s.firstName}`.toLowerCase().includes(q))
+        .sort((a, b) => a.lastName.localeCompare(b.lastName));
+      renderPickerList(filtered);
+    });
+
+    pickerCancelBtn.addEventListener('click', () => pickerOverlay.classList.add('hidden'));
+    pickerOverlay.addEventListener('click', e => { if (e.target === pickerOverlay) pickerOverlay.classList.add('hidden'); });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ASSIGN SEATS
+    // ═══════════════════════════════════════════════════════════════════════════
+    assignMenu.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        assignMenu.classList.remove('open');
+        doAssign(btn.dataset.mode);
+      });
+    });
+
+    function doAssign(mode) {
+      if (mode === 'reset') {
+        if (!confirm('Remove all students from the chart?')) return;
+        seats = {};
+        markDirty();
+        buildGrid();
+        renderRoster();
+        return;
+      }
+      if (mode === 'resetAttendance') {
+        if (!confirm('Clear absent/tardy/present status for this class?')) return;
+        attendanceByCourse[currentCourseId] = {};
+        attendance = attendanceByCourse[currentCourseId];
+        saveAttendanceStore();
+        buildGrid();
+        return;
+      }
+      const placedIds = new Set(Object.values(seats).filter(Boolean));
+      let unplaced = students.filter(s => !placedIds.has(s.id));
+      if (mode === 'alpha') {
+        unplaced.sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
+      } else {
+        for (let i = unplaced.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [unplaced[i], unplaced[j]] = [unplaced[j], unplaced[i]];
+        }
+      }
+      const available = [];
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const k = `${r}-${c}`;
+          if (desks.has(k) && !seats[k]) available.push(k);
+        }
+      unplaced.forEach((s, i) => {
+        if (i < available.length) seats[available[i]] = s.id;
+      });
+      markDirty();
+      buildGrid();
+      renderRoster();
+    }
+
+    editRoomBtn.addEventListener('click', () => {
+      roomEditMode = !roomEditMode;
+      editRoomBtn.classList.toggle('active', roomEditMode);
+      document.body.classList.toggle('room-edit-mode', roomEditMode);
+      buildGrid();
+    });
+
+    assignBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      assignMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', () => assignMenu.classList.remove('open'));
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADD / REMOVE ROW
+    // ═══════════════════════════════════════════════════════════════════════════
+    applyGridBtn.addEventListener('click', () => {
+      const newRows = parseInt(rowInput.value) || 5;
+      const newCols = parseInt(colInput.value) || 6;
+      // Check seats that would be lost
+      let orphans = false;
+      for (const [key, id] of Object.entries(seats)) {
+        if (!id) continue;
+        const [r, c] = key.split('-').map(Number);
+        if (r >= newRows || c >= newCols) { orphans = true; break; }
+      }
+      if (orphans && !confirm('Students outside the new grid will be unassigned. Continue?')) return;
+      rows = newRows; cols = newCols;
+      colWidths = [];
+      rowHeights = [];
+      desks = new Set();
+      // Prune out-of-bounds seats
+      for (const [key, id] of Object.entries(seats)) {
+        const [r, c] = key.split('-').map(Number);
+        if (r >= rows || c >= cols) delete seats[key];
+      }
+      markDirty();
+      buildGrid();
+      renderRoster();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROOM LAYOUTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function loadRoomOptions(selectName = null) {
+      const rooms = getRooms();
+      const prev = selectName ?? roomSelect.value;
+      roomSelect.innerHTML = '<option value="">— Room layout —</option>';
+      Object.keys(rooms).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        roomSelect.appendChild(opt);
+      });
+      if (prev) roomSelect.value = prev;
+      deleteRoomBtn.disabled = !roomSelect.value;
+    }
+
+    // Attendance persists to localStorage immediately (so a stray sign-out or reload
+    // doesn't lose today's A/T/P marks) and syncs to Drive so it follows the teacher
+    // between browsers/devices. Kept separate from the seating chart save data.
+    function getAttendanceStore() {
+      try { return JSON.parse(localStorage.getItem('gcseat-attendance') || '{}'); }
+      catch { return {}; }
+    }
+    function getAttendanceMeta() {
+      try { return JSON.parse(localStorage.getItem('gcseat-attendance-meta') || '{}'); }
+      catch { return {}; }
+    }
+    function saveAttendanceStore() {
+      if (currentCourseId) attendanceUpdatedAt[currentCourseId] = Date.now();
+      localStorage.setItem('gcseat-attendance', JSON.stringify(attendanceByCourse));
+      localStorage.setItem('gcseat-attendance-meta', JSON.stringify(attendanceUpdatedAt));
+      debouncedSyncToDrive();
+    }
+
+    function getRooms() {
+      try { return JSON.parse(localStorage.getItem('gcseat-rooms') || '{}'); }
+      catch { return {}; }
+    }
+    function setRooms(data) {
+      localStorage.setItem('gcseat-rooms', JSON.stringify(data));
+      debouncedSyncToDrive();
+    }
+    function syncRoomDesks() {
+      const name = roomSelect.value;
+      if (!name) return;
+      const rooms = getRooms();
+      if (rooms[name]) { rooms[name].desks = [...desks]; setRooms(rooms); }
+    }
+
+    roomSelect.addEventListener('change', () => {
+      const name = roomSelect.value;
+      deleteRoomBtn.disabled = !name;
+      if (!name) return;
+      const rooms = getRooms();
+      const layout = rooms[name];
+      if (!layout) return;
+      colWidths = layout.colWidths || Array(layout.cols).fill(DESK_W);
+      rowHeights = layout.rowHeights || Array(layout.rows).fill(DESK_H);
+      desks = layout.desks ? new Set(layout.desks) : new Set();
+      for (const key of Object.keys(seats)) {
+        const [r, c] = key.split('-').map(Number);
+        if (r >= layout.rows || c >= layout.cols) delete seats[key];
+      }
+      rows = layout.rows; cols = layout.cols;
+      rowInput.value = rows; colInput.value = cols;
+      buildGrid(); renderRoster();
+      showToast(`Room layout "${name}" loaded.`);
+    });
+
+    saveRoomBtn.addEventListener('click', () => {
+      const name = prompt('Room layout name:');
+      if (!name) return;
+      const rooms = getRooms();
+      rooms[name] = { rows, cols, colWidths: [...colWidths], rowHeights: [...rowHeights], desks: [...desks] };
+      setRooms(rooms);
+      loadRoomOptions(name);
+      showToast(`Room "${name}" saved.`);
+    });
+
+    deleteRoomBtn.addEventListener('click', () => {
+      const name = roomSelect.value;
+      if (!name || !confirm(`Delete room layout "${name}"?`)) return;
+      const rooms = getRooms();
+      delete rooms[name];
+      setRooms(rooms);
+      loadRoomOptions('');
+      showToast(`Room "${name}" deleted.`);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SAVE / LOAD LAYOUT
+    // ═══════════════════════════════════════════════════════════════════════════
+    function markDirty() {
+      isDirty = true;
+      saveBtn.disabled = false;
+    }
+
+    function saveKey(courseId) { return `gcseat-${courseId}`; }
+
+    function loadSavedLayout(courseId) {
+      try { return JSON.parse(localStorage.getItem(saveKey(courseId)) || 'null'); }
+      catch { return null; }
+    }
+
+    saveBtn.addEventListener('click', () => {
+      if (!currentCourseId) return;
+      const payload = { seats, rows, cols, colWidths: [...colWidths], rowHeights: [...rowHeights], room: roomSelect.value || '', desks: [...desks], updatedAt: Date.now() };
+      localStorage.setItem(saveKey(currentCourseId), JSON.stringify(payload));
+      syncRoomDesks();
+      isDirty = false;
+      saveBtn.disabled = true;
+      debouncedSyncToDrive();
+      showToast('Seating chart saved.');
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DRIVE SYNC
+    // ═══════════════════════════════════════════════════════════════════════════
+    const DRIVE_FOLDER_NAME = '.gcseat-config';
+    const DRIVE_FILE_NAME = 'settings.json';
+    let driveFolderId = null, driveFileId = null, syncTimeout = null;
+
+    async function initDriveSync() {
+      try {
+        driveFolderId = await findOrCreateFolder(DRIVE_FOLDER_NAME, true);
+        const file = await findFileInFolder(driveFolderId, DRIVE_FILE_NAME);
+        if (file) {
+          driveFileId = file.id;
+          const s = await downloadDriveSettings(file.id);
+          if (s) mergeDriveSettings(s);
+          if (!hasAnySeatingData(s)) await importFromGCDashIfEmpty();
+        } else {
+          const imported = await importFromGCDashIfEmpty();
+          if (!imported) await syncToDrive();
+        }
+        console.log('Seating Drive sync ready ✓');
+      } catch (e) {
+        console.log('Drive sync unavailable:', e.message);
+      }
+    }
+
+    // GC Seat reuses GCDash's own OAuth Client ID, so a GC Seat access token
+    // carries the same per-file Drive grants GCDash has already accumulated —
+    // meaning it CAN see GCDash's .gcdash-config folder, unlike a folder/file
+    // created by some other app or account tool. One-time only: if GC Seat's
+    // own settings file has no seating data yet, pull GCDash's existing data
+    // in and adopt it as GC Seat's own from then on.
+    async function importFromGCDashIfEmpty() {
+      try {
+        const gcdashFolderId = await findFolderByName('.gcdash-config');
+        if (!gcdashFolderId) return false;
+        const gcdashFile = await findFileInFolder(gcdashFolderId, 'settings.json');
+        if (!gcdashFile) return false;
+        const gcdashData = await downloadDriveSettings(gcdashFile.id);
+        if (!hasAnySeatingData(gcdashData)) return false;
+        mergeDriveSettings(gcdashData);
+        loadRoomOptions();
+        await syncToDrive();
+        console.log('Imported existing seating data from GCDash ✓');
+        showToast('Imported your existing GCDash seating charts.');
+        return true;
+      } catch (e) {
+        console.log('GCDash import skipped:', e.message);
+        return false;
+      }
+    }
+
+    function hasAnySeatingData(s) {
+      return !!(s && (
+        (s.seatingLayouts && Object.keys(s.seatingLayouts).length) ||
+        (s.roomLayouts && Object.keys(s.roomLayouts).length)
+      ));
+    }
+
+    async function findFolderByName(name) {
+      const q = encodeURIComponent(`name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const d = await r.json();
+      return d.files && d.files.length > 0 ? d.files[0].id : null;
+    }
+
+    async function findOrCreateFolder(name, create) {
+      const existing = await findFolderByName(name);
+      if (existing) return existing;
+      if (!create) return null;
+      const c = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }),
+      });
+      return (await c.json()).id;
+    }
+
+    async function findFileInFolder(folderId, fileName) {
+      if (!folderId) return null;
+      const q = encodeURIComponent(`name='${fileName}' and '${folderId}' in parents and trashed=false`);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const d = await r.json();
+      return d.files && d.files.length > 0 ? d.files[0] : null;
+    }
+
+    async function downloadDriveSettings(fileId) {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      try { return await r.json(); } catch { return null; }
+    }
+
+    function mergeDriveSettings(s) {
+      // Seating layouts — overwrite if Drive's copy is newer (or local doesn't exist)
+      if (s.seatingLayouts) {
+        Object.entries(s.seatingLayouts).forEach(([id, layout]) => {
+          const localRaw = localStorage.getItem(saveKey(id));
+          let local = null;
+          try { local = localRaw ? JSON.parse(localRaw) : null; } catch { }
+          const remoteTs = layout.updatedAt || 0;
+          const localTs = local?.updatedAt || 0;
+          if (!local || remoteTs > localTs) {
+            localStorage.setItem(saveKey(id), JSON.stringify(layout));
+          }
+        });
+      }
+      // Room layouts
+      if (s.roomLayouts) {
+        const localRooms = getRooms();
+        const merged = { ...s.roomLayouts, ...localRooms }; // local wins on conflict
+        localStorage.setItem('gcseat-rooms', JSON.stringify(merged));
+        loadRoomOptions();
+      }
+      // Meta labels
+      if (s.seatingMetaLabels) {
+        const existing = JSON.parse(localStorage.getItem('gcseat-settings') || '{}');
+        if (!existing.metaLabels) {
+          existing.metaLabels = s.seatingMetaLabels;
+          localStorage.setItem('gcseat-settings', JSON.stringify(existing));
+        }
+      }
+      // Attendance — last write wins per course, so whichever browser marked it
+      // most recently is the one that sticks.
+      if (s.attendanceByCourse) {
+        const remoteMeta = s.attendanceUpdatedAt || {};
+        let changedCurrent = false;
+        Object.entries(s.attendanceByCourse).forEach(([courseId, data]) => {
+          const remoteTs = remoteMeta[courseId] || 0;
+          const localTs = attendanceUpdatedAt[courseId] || 0;
+          if (remoteTs > localTs) {
+            attendanceByCourse[courseId] = data;
+            attendanceUpdatedAt[courseId] = remoteTs;
+            if (courseId === currentCourseId) changedCurrent = true;
+          }
+        });
+        localStorage.setItem('gcseat-attendance', JSON.stringify(attendanceByCourse));
+        localStorage.setItem('gcseat-attendance-meta', JSON.stringify(attendanceUpdatedAt));
+        if (changedCurrent) {
+          attendance = attendanceByCourse[currentCourseId];
+          buildGrid();
+        }
+      }
+    }
+
+    function collectDriveSettings() {
+      const seatingLayouts = {}, roomLayouts = getRooms();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('gcseat-') &&
+          !key.includes('rooms') && !key.includes('settings') && !key.includes('grades') && !key.includes('attendance')) {
+          try { seatingLayouts[key.replace('gcseat-', '')] = JSON.parse(localStorage.getItem(key)); } catch { }
+        }
+      }
+      let seatingMetaLabels = {};
+      try {
+        const s = JSON.parse(localStorage.getItem('gcseat-settings') || '{}');
+        seatingMetaLabels = s.metaLabels || {};
+      } catch { }
+      return { seatingLayouts, roomLayouts, seatingMetaLabels, attendanceByCourse, attendanceUpdatedAt };
+    }
+
+    function debouncedSyncToDrive() {
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(syncToDrive, 1500);
+    }
+
+    async function syncToDrive() {
+      if (!accessToken || !driveFolderId) return;
+      // Merge with existing Drive data so we don't overwrite course colors/order from app.js
+      let existing = {};
+      if (driveFileId) {
+        try { existing = await downloadDriveSettings(driveFileId) || {}; } catch { }
+      }
+      const merged = { ...existing, ...collectDriveSettings(), updatedAt: new Date().toISOString() };
+      const body = JSON.stringify(merged, null, 2);
+      try {
+        if (driveFileId) {
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body,
+          });
+        } else {
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify({ name: DRIVE_FILE_NAME, parents: [driveFolderId] })], { type: 'application/json' }));
+          form.append('file', new Blob([body], { type: 'application/json' }));
+          const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: form,
+          });
+          driveFileId = (await r.json()).id;
+        }
+        console.log('Seating synced to Drive ✓');
+      } catch (e) {
+        console.log('Drive sync failed:', e.message);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIDEBAR TOGGLE
+    // ═══════════════════════════════════════════════════════════════════════════
+    toggleSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      toggleSidebarBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRIVACY TOGGLE — starts private on every load so grade/risk colors aren't
+    // visible to students walking in; teacher flips to Public View once seated.
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updatePrivacyUI() {
+      document.body.classList.toggle('private-mode', privateMode);
+      privacyToggleBtn.classList.toggle('active', privateMode);
+      privacyToggleBtn.textContent = privateMode ? 'Public View' : 'Private View';
+    }
+    privacyToggleBtn.addEventListener('click', () => {
+      privateMode = !privateMode;
+      updatePrivacyUI();
+      buildGrid();
+    });
+    updatePrivacyUI();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COURSE SELECT
+    // ═══════════════════════════════════════════════════════════════════════════
+    courseSelect.addEventListener('change', () => {
+      if (courseSelect.value) loadCourse(courseSelect.value);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PRINT
+    // ═══════════════════════════════════════════════════════════════════════════
+    const printOverlay = document.getElementById('printOverlay');
+    const printClassList = document.getElementById('printClassList');
+    const printStatus = document.getElementById('printStatus');
+    const printGoBtn = document.getElementById('printGoBtn');
+    const printSelectAllBtn = document.getElementById('printSelectAllBtn');
+
+    document.getElementById('printBtn').addEventListener('click', openPrintModal);
+    document.getElementById('printCloseBtn').addEventListener('click', () => printOverlay.classList.add('hidden'));
+    printOverlay.addEventListener('click', e => { if (e.target === printOverlay) printOverlay.classList.add('hidden'); });
+
+    function openPrintModal() {
+      printClassList.innerHTML = '';
+      printStatus.textContent = '';
+
+      // Get all courses from the dropdown
+      const options = [...courseSelect.options].filter(o => o.value);
+      if (!options.length) { showToast('Load your classes first.'); return; }
+
+      const currentCourseId = courseSelect.value;
+      options.forEach(opt => {
+        const courseId = opt.value;
+        const cached = !!loadCachedGrades(courseId);
+
+        const row = document.createElement('label');
+        row.className = 'print-class-row';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = courseId;
+        cb.checked = courseId === currentCourseId;
+
+        const name = document.createElement('span');
+        name.className = 'print-class-name';
+        name.textContent = opt.textContent;
+
+        row.appendChild(cb);
+        row.appendChild(name);
+
+        if (cached) {
+          const badge = document.createElement('span');
+          badge.className = 'print-cache-badge';
+          badge.textContent = 'cached';
+          row.appendChild(badge);
+        }
+
+        printClassList.appendChild(row);
+      });
+
+      printOverlay.classList.remove('hidden');
+    }
+
+    printSelectAllBtn.addEventListener('click', () => {
+      const checkboxes = printClassList.querySelectorAll('input[type="checkbox"]');
+      const allChecked = [...checkboxes].every(cb => cb.checked);
+      checkboxes.forEach(cb => cb.checked = !allChecked);
+      printSelectAllBtn.textContent = allChecked ? 'Select All' : 'Deselect All';
+    });
+
+    printGoBtn.addEventListener('click', async () => {
+      const selected = [...printClassList.querySelectorAll('input[type="checkbox"]:checked')]
+        .map(cb => cb.value);
+      if (!selected.length) { showToast('Select at least one class.'); return; }
+
+      printGoBtn.disabled = true;
+      printStatus.innerHTML = '<span class="spinner"></span> Preparing…';
+
+      const pages = [];
+
+      for (const courseId of selected) {
+        const courseName = courseSelect.querySelector(`option[value="${courseId}"]`)?.textContent || courseId;
+        printStatus.innerHTML = `<span class="spinner"></span> Loading ${courseName}…`;
+
+        try {
+          // 1. Get roster — reuse current if active, else fetch
+          let courseStudents = (courseId === currentCourseId) ? [...students] : [];
+          if (!courseStudents.length) {
+            let pageToken = '', allStu = [];
+            do {
+              const url = `/v1/courses/${courseId}/students?pageSize=100` + (pageToken ? `&pageToken=${pageToken}` : '');
+              const data = await gcFetch(url);
+              allStu = allStu.concat(data.students || []);
+              pageToken = data.nextPageToken || '';
+            } while (pageToken);
+            courseStudents = allStu.map(s => {
+              const name = (s.profile || {}).name || {};
+              return { id: s.userId, firstName: name.givenName || '', lastName: name.familyName || '', grade: null, meta: {} };
+            });
+          }
+
+          // 2. Always get grades — cache first, then fetch if needed
+          let grades = loadCachedGrades(courseId);
+          if (!grades) {
+            if (courseId === currentCourseId && students.some(s => s.grade !== null)) {
+              // Use already-computed grades for current class
+              grades = {};
+              students.forEach(s => { if (s.grade !== null) grades[s.id] = s.grade; });
+            } else {
+              // Fetch coursework then all submissions via wildcard
+              printStatus.innerHTML = `<span class="spinner"></span> Fetching grades for ${courseName}…`;
+              let cwPage = '', allCW = [];
+              do {
+                const url = `/v1/courses/${courseId}/courseWork?pageSize=100` + (cwPage ? `&pageToken=${cwPage}` : '');
+                const data = await gcFetch(url);
+                allCW = allCW.concat(data.courseWork || []);
+                cwPage = data.nextPageToken || '';
+              } while (cwPage);
+              grades = await fetchGrades(courseId, allCW);
+              saveCachedGrades(courseId, grades);
+            }
+          }
+          courseStudents.forEach(s => { s.grade = grades[s.id] ?? null; });
+
+          // 3. Get saved layout
+          const saved = loadSavedLayout(courseId);
+          const courseSeats = saved?.seats || {};
+          const courseRows = saved?.rows || settings.defaultRows;
+          const courseCols = saved?.cols || settings.defaultCols;
+          const courseColW = saved?.colWidths || Array(courseCols).fill(DESK_W);
+          const courseRowH = saved?.rowHeights || Array(courseRows).fill(DESK_H);
+          const courseDesks = saved?.desks || [];
+
+          pages.push({
+            name: courseName,
+            students: courseStudents,
+            seats: courseSeats,
+            rows: courseRows,
+            cols: courseCols,
+            colWidths: courseColW,
+            rowHeights: courseRowH,
+            desks: courseDesks,
+          });
+        } catch (err) {
+          showToast(`Error loading ${courseName}: ${err.message}`);
+        }
+      }
+
+      printGoBtn.disabled = false;
+      printStatus.textContent = '';
+      printOverlay.classList.add('hidden');
+
+      if (pages.length) openPrintWindow(pages);
+    });
+
+    function tierColor(grade) {
+      if (grade === null) return { bg: '#f0f0f0', border: '#ccc' };
+      if (grade > 75) return { bg: '#dcfce7', border: '#22c55e' };
+      if (grade > 60) return { bg: '#fef9c3', border: '#eab308' };
+      return { bg: '#fee2e2', border: '#ef4444' };
+    }
+
+    function openPrintWindow(pages) {
+      const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
+      let pagesHtml = '';
+      pages.forEach((page, idx) => {
+        const { name, students: stu, seats, rows, cols, colWidths, rowHeights, desks: savedDesks } = page;
+
+        // Build desk set and detect which rows/cols have at least one desk
+        const deskSet = new Set(savedDesks);
+        const activeCol = new Set();
+        const activeRow = new Set();
+        for (const key of deskSet) {
+          const [r, c] = key.split('-').map(Number);
+          activeRow.add(r);
+          activeCol.add(c);
+        }
+
+        // Proportional fr units — empty rows/cols get half weight, matching the interactive view
+        const dispColW = colWidths.map((w, c) => activeCol.has(c) ? w : Math.round(w / 2));
+        const dispRowH = rowHeights.slice(0, rows).map((h, r) => activeRow.has(r) ? h : Math.round(h / 2));
+        const colTpl = dispColW.map(w => w + 'fr').join(' ');
+        const rowTpl = dispRowH.map(h => h + 'fr').join(' ');
+        const totalColFr = dispColW.reduce((a, b) => a + b, 0);
+        const totalRowFr = dispRowH.reduce((a, b) => a + b, 0);
+
+        let gridCells = '';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const key = `${r}-${c}`;
+            if (!deskSet.has(key)) {
+              gridCells += `<div></div>`;
+            } else {
+              const studentId = seats[key];
+              const student = studentId ? stu.find(s => s.id === studentId) : null;
+              if (student) {
+                const { bg, border } = tierColor(student.grade);
+                gridCells += `<div class="desk occ" style="background:${bg};border-left:3px solid ${border};">
+              <div class="dname">${student.firstName}<br>${student.lastName}</div>
+            </div>`;
+              } else {
+                gridCells += `<div class="desk empty"></div>`;
+              }
+            }
+          }
+        }
+
+        pagesHtml += `
+      <div class="page${idx > 0 ? ' page-break' : ''}">
+        <div class="page-header">
+          <div>
+            <div class="mode-label">Seating Chart</div>
+            <h1>${name}</h1>
+          </div>
+          <div class="page-meta">${date}</div>
+        </div>
+        <div class="grid-wrap">
+          <div class="grid" style="grid-template-columns:${colTpl};grid-template-rows:${rowTpl};aspect-ratio:${totalColFr}/${totalRowFr};">
+            ${gridCells}
+          </div>
+        </div>
+        <div class="legend-row">
+          <span class="leg leg-green">On track (&gt;75%)</span>
+          <span class="leg leg-yellow">Watch (61–75%)</span>
+          <span class="leg leg-red">At risk (&#x2264;60%)</span>
+          <span class="leg leg-gray">No data</span>
+        </div>
+        <div class="footer">GC Seat &middot; ${date}</div>
+      </div>`;
+      });
+
+      const w = window.open('', '_blank');
+      w.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Seating Charts</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; color: #111; background: #fff; }
+
+  /* ── Screen toolbar ── */
+  .no-print { padding: 0.75rem 1.5rem; background: #f9f9f9; border-bottom: 1px solid #ddd;
+    display: flex; gap: 10px; align-items: center; }
+  button { padding: 7px 18px; font-size: 13px; background: #F26522; color: #fff;
+    border: none; border-radius: 6px; cursor: pointer; }
+  button.sec { background: #fff; color: #333; border: 1px solid #ccc; }
+
+  /* ── Page ── */
+  html, body { height: 100%; }
+  .page {
+    width: 100%; height: 100vh;
+    padding: 0.6cm 0.8cm 0.4cm;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .page-break { page-break-before: always; }
+
+  /* ── Header ── */
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2px solid #111; padding-bottom: 0.4rem; margin-bottom: 0.5rem; flex-shrink: 0; }
+  .mode-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #F26522; margin-bottom: 2px; }
+  h1 { font-size: 18px; font-weight: 700; }
+  .page-meta { font-size: 11px; color: #777; }
+
+  /* ── Grid ── */
+  .grid-wrap { flex: 1; display: flex; min-height: 0; align-items: flex-start; padding: 4px 0; overflow: hidden; }
+  .grid {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    max-height: 100%;
+    /* height is driven by aspect-ratio set inline — prevents vertical stretching */
+  }
+
+  /* ── Desk cards ── */
+  .desk {
+    border-radius: 5px;
+    min-width: 0; min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 4px 5px;
+  }
+  .desk.empty { border: 1px dashed #ccc; background: #fff; }
+  .desk.occ   { }
+  .dname {
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #111;
+    word-break: break-word;
+  }
+
+  /* ── Legend ── */
+  .legend-row { display: flex; gap: 14px; justify-content: center;
+    padding: 0.3rem 0 0.15rem; flex-shrink: 0; }
+  .leg { font-size: 10px; display: flex; align-items: center; gap: 4px; }
+  .leg::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+  .leg-green::before  { background: #22c55e; }
+  .leg-yellow::before { background: #eab308; }
+  .leg-red::before    { background: #ef4444; }
+  .leg-gray::before   { background: #ccc; }
+
+  /* ── Footer ── */
+  .footer { font-size: 9px; color: #aaa; text-align: right;
+    border-top: 0.5px solid #eee; padding-top: 3px; flex-shrink: 0; }
+
+  /* ── Print ── */
+  @media print {
+    .no-print { display: none !important; }
+    @page { size: landscape; margin: 0.5cm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { height: 100%; }
+    .page { width: 100%; height: 100%; padding: 0; }
+    .grid-wrap { flex: 1; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">Print</button>
+    <button class="sec" onclick="window.close()">Close</button>
+    <span style="font-size:12px;color:#777;margin-left:8px;">${pages.length} class${pages.length > 1 ? 'es' : ''} &middot; Landscape &middot; ${date}</span>
+  </div>
+  ${pagesHtml}
+</body>
+</html>`);
+      w.document.close();
+    }
+
+
+
+    function signOutSeating() {
+      if (accessToken && window.google) google.accounts.oauth2.revoke(accessToken);
+      accessToken = null;
+      sessionStorage.removeItem('gcseat-access-token');
+      window.location.reload();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TABLET LONG-PRESS TO MOVE
+    // ═══════════════════════════════════════════════════════════════════════════
+    let selectedDeskKey = null;
+    let selectedRosterStudentId = null;
+    let longPressTimer = null;
+    const LONG_PRESS_MS = 500;
+
+    function addTabletTapHandler(desk, key) {
+      const isOccupied = () => !!seats[key];
+
+      desk.addEventListener('touchstart', e => {
+        // Only start long press timer for occupied desks
+        if (!isOccupied()) return;
+        longPressTimer = setTimeout(() => {
+          if (navigator.vibrate) navigator.vibrate(40);
+          // If something already selected, treat as destination
+          if (selectedDeskKey && selectedDeskKey !== key) {
+            triggerConfirm(key);
+            return;
+          }
+          // Select this desk
+          selectedDeskKey = null;
+          desk.classList.add('selected');
+          selectedDeskKey = key;
+        }, LONG_PRESS_MS);
+      }, { passive: true });
+
+      // Cancel long press if finger moves
+      desk.addEventListener('touchmove', () => {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }, { passive: true });
+
+      desk.addEventListener('touchend', e => {
+        if (longPressTimer) {
+          // Short tap — cancelled long press
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+          // If a roster student is selected, move them here
+          if (selectedRosterStudentId) {
+            e.preventDefault();
+            triggerRosterConfirm(key);
+            return;
+          }
+          // If a desk student is selected, this is the destination
+          if (selectedDeskKey && selectedDeskKey !== key) {
+            e.preventDefault();
+            triggerConfirm(key);
+            return;
+          }
+          // Plain tap on an occupied, unselected desk — cycle attendance
+          if (!selectedDeskKey && isOccupied()) {
+            e.preventDefault();
+            cycleAttendance(seats[key]);
+          }
+        } else {
+          // Long press already fired
+          if (selectedRosterStudentId) {
+            e.preventDefault();
+            triggerRosterConfirm(key);
+          } else if (selectedDeskKey && selectedDeskKey !== key && !isOccupied()) {
+            e.preventDefault();
+            triggerConfirm(key);
+          }
+        }
+      });
+    }
+
+    function triggerRosterConfirm(destKey) {
+      const student = students.find(s => s.id === selectedRosterStudentId);
+      if (!student) { clearTabletSelection(); return; }
+      const occupant = seats[destKey] ? students.find(s => s.id === seats[destKey]) : null;
+      if (occupant) {
+        showToast('That desk is occupied. Choose an empty desk.');
+        return;
+      }
+      const msg = `Move ${student.firstName} ${student.lastName} here?`;
+      showTapConfirm(msg, () => {
+        seats[destKey] = selectedRosterStudentId;
+        selectedRosterStudentId = null;
+        isDirty = true;
+        buildGrid();
+        renderRoster();
+        if (currentCourseId) {
+          const payload = { seats, rows, cols, colWidths: [...colWidths], rowHeights: [...rowHeights], room: roomSelect.value || '', desks: [...desks], updatedAt: Date.now() };
+          localStorage.setItem(saveKey(currentCourseId), JSON.stringify(payload));
+          syncRoomDesks();
+          debouncedSyncToDrive();
+          showToast('Seating chart saved.');
+        }
+      });
+    }
+
+    function triggerConfirm(destKey) {
+      const fromStudent = students.find(s => s.id === seats[selectedDeskKey]);
+      if (!fromStudent) { clearTabletSelection(); return; }
+      const toStudentId = seats[destKey] || null;
+      const toStudent = toStudentId ? students.find(s => s.id === toStudentId) : null;
+      const msg = toStudent
+        ? `Swap ${fromStudent.firstName} ${fromStudent.lastName} and ${toStudent.firstName} ${toStudent.lastName}?`
+        : `Move ${fromStudent.firstName} ${fromStudent.lastName} here?`;
+
+      const fromKey = selectedDeskKey;
+
+      showTapConfirm(msg, () => {
+        // Proper swap — store both IDs first, then assign atomically
+        const fromId = seats[fromKey];
+        const toId = seats[destKey] !== undefined ? seats[destKey] : null;
+        seats[fromKey] = toId || null;
+        seats[destKey] = fromId;
+        selectedDeskKey = null; // clear before rebuild so no stale reference
+        isDirty = true;
+        buildGrid();
+        renderRoster();
+        // Auto-save
+        if (currentCourseId) {
+          const payload = { seats, rows, cols, colWidths: [...colWidths], rowHeights: [...rowHeights], room: roomSelect.value || '', desks: [...desks], updatedAt: Date.now() };
+          localStorage.setItem(saveKey(currentCourseId), JSON.stringify(payload));
+          syncRoomDesks();
+          debouncedSyncToDrive();
+          showToast('Seating chart saved.');
+        }
+      });
+    }
+
+    function clearTabletSelection() {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+      if (selectedDeskKey) {
+        const desk = grid.querySelector(`[data-key="${selectedDeskKey}"]`);
+        if (desk) desk.classList.remove('selected');
+        selectedDeskKey = null;
+      }
+      if (selectedRosterStudentId) {
+        rosterList.querySelectorAll('.chip-selected').forEach(c => c.classList.remove('chip-selected'));
+        selectedRosterStudentId = null;
+      }
+    }
+
+    function showTapConfirm(msg, onConfirm) {
+      const el = document.getElementById('tapConfirm');
+      const yes = document.getElementById('tapConfirmYes');
+      const no = document.getElementById('tapConfirmNo');
+      document.getElementById('tapConfirmMsg').textContent = msg;
+      el.classList.add('show');
+
+      const cleanup = () => {
+        el.classList.remove('show');
+        yes.removeEventListener('touchend', handleYes);
+        no.removeEventListener('touchend', handleNo);
+        yes.removeEventListener('click', handleYes);
+        no.removeEventListener('click', handleNo);
+      };
+      const handleYes = e => { e.preventDefault(); cleanup(); onConfirm(); };
+      const handleNo = e => { e.preventDefault(); cleanup(); clearTabletSelection(); };
+      yes.addEventListener('touchend', handleYes);
+      no.addEventListener('touchend', handleNo);
+      yes.addEventListener('click', handleYes);
+      no.addEventListener('click', handleNo);
+    }
+
+    // Tap outside grid to deselect
+    document.getElementById('chartArea').addEventListener('touchend', e => {
+      if (IS_TABLET && selectedDeskKey && !e.target.closest('.desk')) {
+        clearTabletSelection();
+      }
+    });
+
+    function setStatus(html) { statusText.innerHTML = html; }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+  </script>
+</body>
+
+</html>
