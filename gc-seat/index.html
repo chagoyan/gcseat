@@ -565,6 +565,36 @@
       border-color: var(--accent);
     }
 
+    /* Attendance marked (present/absent/tardy) — orange name + letter badge,
+       so the alphabetical roster doubles as an Aeries-entry checklist. Full
+       opacity even when "placed" so a marked student doesn't stay dimmed. */
+    .student-chip.chip-att {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .student-chip.placed.chip-att {
+      opacity: 1;
+    }
+
+    .chip-att-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 15px;
+      height: 15px;
+      padding: 0 3px;
+      margin-left: 6px;
+      border-radius: 3px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      line-height: 1;
+      vertical-align: middle;
+    }
+
     .student-chip.chip-selected {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
@@ -2273,6 +2303,7 @@
       else attendance[studentId] = 'present';
       saveAttendanceStore();
       buildGrid();
+      renderRoster();
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2583,11 +2614,20 @@
       );
       sorted.forEach(student => {
         const placed = placedIds.has(student.id);
+        // Attendance only ever gets set on seated students (marked by clicking
+        // their desk), so unseated roster rows never show it — handled manually.
+        const attState = placed ? attendance[student.id] : null;
         const li = document.createElement('li');
         const chip = document.createElement('div');
-        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}`;
+        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}${attState ? ' chip-att' : ''}`;
         chip.textContent = `${student.lastName}, ${student.firstName}`;
         chip.title = gradeLabel(student);
+        if (attState) {
+          const badge = document.createElement('span');
+          badge.className = 'chip-att-badge';
+          badge.textContent = attState === 'absent' ? 'A' : attState === 'tardy' ? 'T' : 'P';
+          chip.appendChild(badge);
+        }
         if (!placed) {
           chip.draggable = !IS_TOUCH;
           if (!IS_TOUCH) {
@@ -2693,6 +2733,7 @@
         attendance = attendanceByCourse[currentCourseId];
         saveAttendanceStore();
         buildGrid();
+        renderRoster();
         return;
       }
       const placedIds = new Set(Object.values(seats).filter(Boolean));
@@ -3094,7 +3135,7 @@
       document.body.classList.toggle('private-mode', privateMode);
       // Button always names the view a click will switch TO, not the current
       // view — no "active" highlight, so it never doubles as a state readout.
-      privacyToggleBtn.textContent = privateMode ? 'Public View' : 'Private View';
+      privacyToggleBtn.textContent = privateMode ? 'Private View' : 'Public View';
     }
     privacyToggleBtn.addEventListener('click', () => {
       privateMode = !privateMode;
