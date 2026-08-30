@@ -665,16 +665,19 @@
     body.room-edit-mode .desk.is-space:hover {
       background: #e8eaed !important;
     }
+    /* Real desk positions — bold orange, the thing you'd click to remove/edit */
     body.room-edit-mode .desk:not(.is-space):not(.occupied):not(.is-aisle) {
-      border: 1px dashed #F26522 !important;
-    }
-    #editRoomBtn.active {
-      background: #F26522;
-      color: #fff;
-      border-color: transparent;
+      border: 2px dashed #c1440e !important;
+      border-radius: var(--radius) !important;
     }
 
-    #privacyToggleBtn.active {
+    /* Empty / walkway spots — muted gray so they read as secondary, not desks */
+    body.room-edit-mode .desk.is-space,
+    body.room-edit-mode .desk.is-aisle {
+      border: 1px dashed #9aa0a6 !important;
+      border-radius: var(--radius) !important;
+    }
+    #editRoomBtn.active {
       background: #F26522;
       color: #fff;
       border-color: transparent;
@@ -697,7 +700,7 @@
     .desk.occupied {
       border: none;
       border-left: 3px solid transparent;
-      box-shadow: 0 0 0 1px #5f6368;
+      box-shadow: 0 0 0 1px var(--accent);
       cursor: default;
       flex-direction: column;
       align-items: flex-start;
@@ -807,6 +810,30 @@
 
     .desk:hover .desk-remove {
       opacity: 1;
+    }
+
+    /* Room-edit mode: hovering a desk's number badge swaps it to an ✕,
+       signalling that a click there removes this desk position. */
+    body.room-edit-mode .desk-number-badge {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    body.room-edit-mode .desk-number-badge:hover {
+      font-size: 0;
+      background: #c1440e;
+      border-color: #c1440e;
+    }
+
+    body.room-edit-mode .desk-number-badge:hover::after {
+      content: '✕';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.62rem;
+      color: #fff;
     }
 
     .desk.occupied:hover .desk-number-badge {
@@ -1489,13 +1516,15 @@
         <option value="">— Select class —</option>
       </select>
 
-      <div class="divider-v"></div>
+      <div class="divider-v" id="gridSizeDivider" style="display:none;"></div>
 
-      <label style="font-size:0.82rem;color:var(--text-muted);">Rows</label>
-      <input type="number" id="rowCount" value="5" min="1" max="28" />
-      <label style="font-size:0.82rem;color:var(--text-muted);">Cols</label>
-      <input type="number" id="colCount" value="6" min="1" max="28" />
-      <button class="btn btn-ghost" id="applyGridBtn">Apply</button>
+      <span id="gridSizeControls" style="display:none;align-items:center;gap:8px;">
+        <label style="font-size:0.82rem;color:var(--text-muted);">Rows</label>
+        <input type="number" id="rowCount" value="5" min="1" max="28" />
+        <label style="font-size:0.82rem;color:var(--text-muted);">Cols</label>
+        <input type="number" id="colCount" value="6" min="1" max="28" />
+        <button class="btn btn-ghost" id="applyGridBtn">Apply</button>
+      </span>
 
       <div class="divider-v"></div>
 
@@ -1520,7 +1549,7 @@
       <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
       <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy marks for this class">Reset Attendance</button>
       <button class="btn btn-ghost" id="printBtn">Print</button>
-      <button class="btn btn-ghost" id="settingsBtn" style="padding:5px 10px;" title="Settings">⚙</button>
+      <button class="btn btn-ghost" id="settingsBtn" style="padding:5px 10px;font-size:1.35rem;line-height:1;" title="Settings">⚙</button>
     </div>
   </header>
 
@@ -2694,6 +2723,8 @@
       roomEditMode = !roomEditMode;
       editRoomBtn.classList.toggle('active', roomEditMode);
       document.body.classList.toggle('room-edit-mode', roomEditMode);
+      document.getElementById('gridSizeControls').style.display = roomEditMode ? 'inline-flex' : 'none';
+      document.getElementById('gridSizeDivider').style.display = roomEditMode ? '' : 'none';
       buildGrid();
     });
 
@@ -3061,7 +3092,8 @@
     // ═══════════════════════════════════════════════════════════════════════════
     function updatePrivacyUI() {
       document.body.classList.toggle('private-mode', privateMode);
-      privacyToggleBtn.classList.toggle('active', privateMode);
+      // Button always names the view a click will switch TO, not the current
+      // view — no "active" highlight, so it never doubles as a state readout.
       privacyToggleBtn.textContent = privateMode ? 'Public View' : 'Private View';
     }
     privacyToggleBtn.addEventListener('click', () => {
