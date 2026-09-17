@@ -41,6 +41,10 @@
       --gray: #64748b;
       --gray-bg: rgba(100, 116, 139, 0.10);
 
+      /* attendance: "late" (30+ min, too late to count as tardy) */
+      --late: #8b5cf6;
+      --late-bg: rgba(139, 92, 246, 0.18);
+
       --desk-w: 118px;
       --desk-h: 76px;
       --gap: 10px;
@@ -577,6 +581,13 @@
       opacity: 1;
     }
 
+    /* "Late" gets its own color everywhere (desk + roster) so it reads as
+       visually distinct from Absent/Tardy at a glance, even though it counts
+       as an absence in Aeries. */
+    .student-chip.chip-att.chip-att-late {
+      color: var(--late);
+    }
+
     .chip-att-badge {
       display: inline-flex;
       align-items: center;
@@ -593,6 +604,10 @@
       font-family: 'DM Mono', monospace;
       line-height: 1;
       vertical-align: middle;
+    }
+
+    .chip-att-badge.att-late-badge {
+      background: var(--late);
     }
 
     .student-chip.chip-selected {
@@ -775,6 +790,11 @@
     .desk.occupied.att-tardy {
       background: rgba(242, 101, 34, 0.3);
       border-color: var(--accent);
+    }
+
+    .desk.occupied.att-late {
+      background: var(--late-bg);
+      border-color: var(--late);
     }
 
     .desk.occupied.att-present {
@@ -1577,7 +1597,7 @@
       </div>
       <button class="btn btn-primary" id="saveBtn" disabled>Save Seating Chart</button>
       <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
-      <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy marks for this class">Reset Attendance</button>
+      <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy/Late marks for this class">Reset Attendance</button>
       <button class="btn btn-ghost" id="printBtn">Print</button>
       <button class="btn btn-ghost" id="settingsBtn" style="padding:5px 10px;font-size:1.35rem;line-height:1;" title="Settings">⚙</button>
     </div>
@@ -1780,7 +1800,7 @@
     let accessToken = null;
     let students = [];   // [{ id, firstName, lastName, grade, meta:{field1..4} }]
     let seats = {};   // { "r-c": studentId | null }
-    let attendanceByCourse = getAttendanceStore();   // { courseId: { studentId: 'present' | 'absent' | 'tardy' } } — synced to Drive, last write wins per course
+    let attendanceByCourse = getAttendanceStore();   // { courseId: { studentId: 'present' | 'absent' | 'tardy' | 'late' } } — synced to Drive, last write wins per course
     let attendanceUpdatedAt = getAttendanceMeta();   // { courseId: msEpoch } — used to resolve which browser's attendance is newer on merge
     let attendance = {};   // alias for attendanceByCourse[currentCourseId]
     let rows = 5;
@@ -2285,12 +2305,16 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // ATTENDANCE (click a seated student to cycle: default → present → absent → tardy → default)
+    // ATTENDANCE (click a seated student to cycle: default → present → absent → tardy → late → default)
+    // "late" = arrived more than ~30 min in, too late to count as tardy —
+    // technically an absence in Aeries, but marked separately here so it's
+    // clear at a glance the student did show up. Always set manually.
     // ═══════════════════════════════════════════════════════════════════════════
     function attendanceClass(studentId) {
       const state = attendance[studentId];
       if (state === 'absent') return 'att-absent';
       if (state === 'tardy') return 'att-tardy';
+      if (state === 'late') return 'att-late';
       if (state === 'present') return 'att-present';
       return '';
     }
@@ -2299,7 +2323,8 @@
       const state = attendance[studentId];
       if (state === 'present') attendance[studentId] = 'absent';
       else if (state === 'absent') attendance[studentId] = 'tardy';
-      else if (state === 'tardy') delete attendance[studentId];
+      else if (state === 'tardy') attendance[studentId] = 'late';
+      else if (state === 'late') delete attendance[studentId];
       else attendance[studentId] = 'present';
       saveAttendanceStore();
       buildGrid();
@@ -2419,6 +2444,7 @@
       const attState = attendance[student.id];
       const attBadge = attState === 'absent' ? '<span class="desk-att-badge" title="Absent">A</span>'
         : attState === 'tardy' ? '<span class="desk-att-badge" title="Tardy">T</span>'
+        : attState === 'late' ? '<span class="desk-att-badge" title="Late (30+ min, counts as absent in Aeries)">L</span>'
         : attState === 'present' ? '<span class="desk-att-badge" title="Present">P</span>'
         : '';
 
@@ -2617,15 +2643,16 @@
         // Attendance only ever gets set on seated students (marked by clicking
         // their desk), so unseated roster rows never show it — handled manually.
         const attState = placed ? attendance[student.id] : null;
+        const isLate = attState === 'late';
         const li = document.createElement('li');
         const chip = document.createElement('div');
-        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}${attState ? ' chip-att' : ''}`;
+        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}${attState ? ' chip-att' : ''}${isLate ? ' chip-att-late' : ''}`;
         chip.textContent = `${student.lastName}, ${student.firstName}`;
         chip.title = gradeLabel(student);
         if (attState) {
           const badge = document.createElement('span');
-          badge.className = 'chip-att-badge';
-          badge.textContent = attState === 'absent' ? 'A' : attState === 'tardy' ? 'T' : 'P';
+          badge.className = `chip-att-badge${isLate ? ' att-late-badge' : ''}`;
+          badge.textContent = attState === 'absent' ? 'A' : attState === 'tardy' ? 'T' : isLate ? 'L' : 'P';
           chip.appendChild(badge);
         }
         if (!placed) {
@@ -2728,7 +2755,7 @@
         return;
       }
       if (mode === 'resetAttendance') {
-        if (!confirm('Clear absent/tardy/present status for this class?')) return;
+        if (!confirm('Clear present/absent/tardy/late status for this class?')) return;
         attendanceByCourse[currentCourseId] = {};
         attendance = attendanceByCourse[currentCourseId];
         saveAttendanceStore();
