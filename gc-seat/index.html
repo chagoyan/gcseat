@@ -41,9 +41,12 @@
       --gray: #64748b;
       --gray-bg: rgba(100, 116, 139, 0.10);
 
-      /* attendance: "late" (30+ min, too late to count as tardy) */
-      --late: #8b5cf6;
-      --late-bg: rgba(139, 92, 246, 0.18);
+      /* attendance colors — match desk fill + roster name/badge per state */
+      --present: #3b82f6;
+      --present-bg: rgba(59, 130, 246, 0.15);
+      /* "late" = 30+ min in, too late to count as tardy */
+      --late: #eab308;
+      --late-bg: rgba(234, 179, 8, 0.18);
 
       --desk-w: 118px;
       --desk-h: 76px;
@@ -550,7 +553,7 @@
     }
 
     .student-chip.unseated {
-      background: rgba(250, 204, 21, 0.35);
+      background: rgba(239, 68, 68, 0.35);
     }
 
     .student-chip.tier-green {
@@ -569,11 +572,12 @@
       border-color: var(--accent);
     }
 
-    /* Attendance marked (present/absent/tardy) — orange name + letter badge,
-       so the alphabetical roster doubles as an Aeries-entry checklist. Full
+    /* Attendance marked (present/absent/tardy/late) — name + letter badge,
+       colored to match that state's desk color (Present=blue, Absent=dark
+       orange, Tardy=orange, Late=yellow), so the alphabetical roster doubles
+       as an Aeries-entry checklist you can scan by color or by letter. Full
        opacity even when "placed" so a marked student doesn't stay dimmed. */
     .student-chip.chip-att {
-      color: var(--accent);
       font-weight: 600;
     }
 
@@ -581,9 +585,18 @@
       opacity: 1;
     }
 
-    /* "Late" gets its own color everywhere (desk + roster) so it reads as
-       visually distinct from Absent/Tardy at a glance, even though it counts
-       as an absence in Aeries. */
+    .student-chip.chip-att.chip-att-present {
+      color: var(--present);
+    }
+
+    .student-chip.chip-att.chip-att-absent {
+      color: var(--accent-dim);
+    }
+
+    .student-chip.chip-att.chip-att-tardy {
+      color: var(--accent);
+    }
+
     .student-chip.chip-att.chip-att-late {
       color: var(--late);
     }
@@ -606,8 +619,22 @@
       vertical-align: middle;
     }
 
+    .chip-att-badge.att-present-badge {
+      background: var(--present);
+    }
+
+    .chip-att-badge.att-absent-badge {
+      background: var(--accent-dim);
+    }
+
+    .chip-att-badge.att-tardy-badge {
+      background: var(--accent);
+    }
+
+    /* Yellow badge needs dark text instead of the default white for contrast */
     .chip-att-badge.att-late-badge {
       background: var(--late);
+      color: var(--text);
     }
 
     .student-chip.chip-selected {
@@ -798,8 +825,8 @@
     }
 
     .desk.occupied.att-present {
-      background: rgba(59, 130, 246, 0.15);
-      border-color: #3b82f6;
+      background: var(--present-bg);
+      border-color: var(--present);
     }
 
     .desk.occupied:hover {
@@ -2643,16 +2670,15 @@
         // Attendance only ever gets set on seated students (marked by clicking
         // their desk), so unseated roster rows never show it — handled manually.
         const attState = placed ? attendance[student.id] : null;
-        const isLate = attState === 'late';
         const li = document.createElement('li');
         const chip = document.createElement('div');
-        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}${attState ? ' chip-att' : ''}${isLate ? ' chip-att-late' : ''}`;
+        chip.className = `student-chip ${tierClass(student)}${placed ? ' placed' : ' unseated'}${attState ? ` chip-att chip-att-${attState}` : ''}`;
         chip.textContent = `${student.lastName}, ${student.firstName}`;
         chip.title = gradeLabel(student);
         if (attState) {
           const badge = document.createElement('span');
-          badge.className = `chip-att-badge${isLate ? ' att-late-badge' : ''}`;
-          badge.textContent = attState === 'absent' ? 'A' : attState === 'tardy' ? 'T' : isLate ? 'L' : 'P';
+          badge.className = `chip-att-badge att-${attState}-badge`;
+          badge.textContent = attState === 'absent' ? 'A' : attState === 'tardy' ? 'T' : attState === 'late' ? 'L' : 'P';
           chip.appendChild(badge);
         }
         if (!placed) {
