@@ -1364,6 +1364,7 @@
     body.is-phone #deleteRoomBtn,
     body.is-phone #assignBtn,
     body.is-phone #resetAttendanceBtn,
+    body.is-phone #exportAttendanceBtn,
     body.is-phone #saveBtn,
     body.is-phone #settingsBtn,
     body.is-phone #printBtn,
@@ -1396,6 +1397,7 @@
     body.is-tablet #editRoomBtn,
     body.is-tablet #assignBtn,
     body.is-tablet #resetAttendanceBtn,
+    body.is-tablet #exportAttendanceBtn,
     body.is-tablet #saveBtn,
     body.is-tablet #settingsBtn,
     body.is-tablet #printBtn,
@@ -1625,6 +1627,7 @@
       <button class="btn btn-primary" id="saveBtn" disabled>Save Seating Chart</button>
       <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
       <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy/Late marks for this class">Reset Attendance</button>
+      <button class="btn btn-ghost" id="exportAttendanceBtn" title="Save today's attendance for this class as a file for the Aeries helper script">Export for Aeries</button>
       <button class="btn btn-ghost" id="printBtn">Print</button>
       <button class="btn btn-ghost" id="settingsBtn" style="padding:5px 10px;font-size:1.35rem;line-height:1;" title="Settings">⚙</button>
     </div>
@@ -2359,6 +2362,116 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT FOR AERIES HELPER
+    // Writes gcseat-export_<date>_period<N>.json for the local Python script
+    // (aeries-attendance/fill_attendance.py). Only students with a mark are included;
+    // unmarked students are left out so the script leaves them blank (= present).
+    // Saves into a folder you pick once (Chrome remembers it); falls back to a normal
+    // download if the browser can't write to a folder.
+    // ═══════════════════════════════════════════════════════════════════════════
+    const AERIES_STATUS = { present: 'P', absent: 'A', tardy: 'T', late: 'L' };
+
+    function localDateISO(d = new Date()) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+
+    function idbOpen() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('gcseat-export', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function idbGet(k) {
+      const db = await idbOpen();
+      return new Promise((res, rej) => {
+        const q = db.transaction('kv').objectStore('kv').get(k);
+        q.onsuccess = () => res(q.result);
+        q.onerror = () => rej(q.error);
+      });
+    }
+    async function idbSet(k, v) {
+      const db = await idbOpen();
+      return new Promise((res, rej) => {
+        const t = db.transaction('kv', 'readwrite');
+        t.objectStore('kv').put(v, k);
+        t.oncomplete = () => res();
+        t.onerror = () => rej(t.error);
+      });
+    }
+
+    // Returns a writable folder handle, or null if the browser can't do folders.
+    // Throws AbortError if the teacher cancels the folder picker.
+    async function getExportFolder() {
+      if (!window.showDirectoryPicker) return null;
+      let handle = null;
+      try { handle = await idbGet('exportDir'); } catch (e) { /* ignore */ }
+      if (handle) {
+        try {
+          let perm = await handle.queryPermission({ mode: 'readwrite' });
+          if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'readwrite' });
+          if (perm === 'granted') return handle;
+        } catch (e) { /* folder gone — pick again below */ }
+      }
+      handle = await window.showDirectoryPicker({ id: 'gcseat-exports', mode: 'readwrite', startIn: 'desktop' });
+      try { await idbSet('exportDir', handle); } catch (e) { /* ignore */ }
+      return handle;
+    }
+
+    async function exportAttendanceForAeries() {
+      if (!currentCourseId) { showToast('Select a class first.'); return; }
+
+      // Folder first: the permission prompt needs the click that started this.
+      let folder = null;
+      try { folder = await getExportFolder(); }
+      catch (e) {
+        if (e && e.name === 'AbortError') { showToast('Export cancelled.'); return; }
+        folder = null;
+      }
+
+      const key = 'gcseat-aeries-period-' + currentCourseId;
+      let remembered = '';
+      try { remembered = localStorage.getItem(key) || ''; } catch (e) { /* ignore */ }
+      const ans = window.prompt('Which Aeries period is this class? (e.g. 4)', remembered);
+      if (ans === null) return;
+      const period = ans.trim().replace(/^period\s*/i, '');
+      if (!/^[A-Za-z0-9]+$/.test(period)) { showToast('Enter a period such as 4.'); return; }
+      try { localStorage.setItem(key, period); } catch (e) { /* ignore */ }
+
+      const list = students
+        .filter(s => AERIES_STATUS[attendance[s.id]])
+        .map(s => ({ email: s.email || '', name: `${s.lastName}, ${s.firstName}`, status: AERIES_STATUS[attendance[s.id]] }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (!list.length) { showToast('No attendance marked yet for this class.'); return; }
+
+      const date = localDateISO();
+      const courseLabel = courseSelect.querySelector(`option[value="${currentCourseId}"]`)?.textContent || '';
+      const text = JSON.stringify({ date, period, course: courseLabel, exported_at: new Date().toISOString(), students: list }, null, 2);
+      const fileName = `gcseat-export_${date}_period${period}.json`;
+
+      if (folder) {
+        try {
+          const fh = await folder.getFileHandle(fileName, { create: true });
+          const w = await fh.createWritable();
+          await w.write(text);
+          await w.close();
+          showToast(`Saved ${fileName} (${list.length} students) in "${folder.name}".`);
+          return;
+        } catch (e) { /* fall through to a normal download */ }
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      showToast(`Downloaded ${fileName} (${list.length} students).`);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // GRID
     // ═══════════════════════════════════════════════════════════════════════════
     function buildGrid() {
@@ -2829,6 +2942,7 @@
     document.addEventListener('click', () => assignMenu.classList.remove('open'));
 
     document.getElementById('resetAttendanceBtn').addEventListener('click', () => doAssign('resetAttendance'));
+    document.getElementById('exportAttendanceBtn').addEventListener('click', exportAttendanceForAeries);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADD / REMOVE ROW

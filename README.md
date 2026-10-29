@@ -1,6 +1,6 @@
 # GCSeat
 
-A Google Classroom seating chart app, with an Aeries SIS integration built
+A Google Classroom seating chart app (useful), with an Aeries SIS integration built
 on a local mock-first development pattern. Originally forked out of
 [GCDash](https://gcdash.netlify.app)'s seating chart — now a fully
 independent project with its own repo and its own deployment.
