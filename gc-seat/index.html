@@ -213,6 +213,21 @@
       color: #fff;
     }
 
+    /* ── Attendance history: date nav + past-day look ── */
+    #attNav { display: inline-flex; align-items: center; gap: 4px; }
+    #attDateLabel {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    body.att-past #attDateLabel { background: #dbe7ff; color: #12408f; }
+    #attBanner {
+      align-items: center; gap: 10px; padding: 7px 16px; font-size: 0.85rem;
+      background: #dbe7ff; color: #12408f; border-bottom: 1px solid #aac4f5;
+    }
+    #attBanner button { margin-left: auto; }
+    body.att-past #chartArea, body.att-past #gridWrapper { background: #e9f0fd; }
+
     .btn-danger:hover:not(:disabled) {
       background: rgba(239, 68, 68, 0.1);
       border-color: #ef4444;
@@ -1638,6 +1653,11 @@
       </div>
       <button class="btn btn-primary" id="saveBtn" disabled>Save Seating Chart</button>
       <button class="btn btn-ghost" id="privacyToggleBtn" title="Toggle whether grade/risk colors are visible on desks">Public View</button>
+      <span id="attNav">
+        <button class="btn btn-ghost" id="attPrevBtn" title="Previous school day" style="padding:5px 10px;">&#8249;</button>
+        <span id="attDateLabel"></span>
+        <button class="btn btn-ghost" id="attNextBtn" title="Next school day" style="padding:5px 10px;">&#8250;</button>
+      </span>
       <button class="btn btn-danger" id="resetAttendanceBtn" title="Clear Present/Absent/Tardy/Late marks for this class">Reset Attendance</button>
       <button class="btn btn-ghost" id="exportAttendanceBtn" title="Save today's attendance for this class as a file for the Aeries helper script">Export for Aeries</button>
       <button class="btn btn-ghost" id="printBtn">Print</button>
@@ -1651,6 +1671,8 @@
   </div>
 
   <!-- ── Legend ────────────────────────────────────────────────────────────── -->
+  <div id="attBanner" style="display:none;"></div>
+
   <div id="legend">
     <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>On track (&gt; 75%)</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span>Watch (61–75%)</span>
@@ -1842,9 +1864,16 @@
     let accessToken = null;
     let students = [];   // [{ id, firstName, lastName, grade, meta:{field1..4} }]
     let seats = {};   // { "r-c": studentId | null }
-    let attendanceByCourse = getAttendanceStore();   // { courseId: { studentId: 'present' | 'absent' | 'tardy' | 'late' } } — synced to Drive, last write wins per course
-    let attendanceUpdatedAt = getAttendanceMeta();   // { courseId: msEpoch } — used to resolve which browser's attendance is newer on merge
-    let attendance = {};   // alias for attendanceByCourse[currentCourseId]
+    let attendanceByCourse = getAttendanceStore();   // { courseId: { 'YYYY-MM-DD': { studentId: 'present' | 'absent' | 'tardy' | 'late' } } } — synced to Drive, last write wins per course per day
+    let attendanceUpdatedAt = getAttendanceMeta();   // { courseId: { 'YYYY-MM-DD': msEpoch } } — used to resolve which browser's attendance is newer on merge
+    let attendance = {};   // alias for attendanceByCourse[currentCourseId][viewDate]
+    // Attendance history: attendanceByCourse = { courseId: { 'YYYY-MM-DD': { studentId: state } } },
+    // attendanceUpdatedAt = { courseId: { 'YYYY-MM-DD': msEpoch } }. Last 14 days are kept.
+    const ATT_KEEP_DAYS = 14;
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    let viewDate = localDateISO();     // the day being viewed/edited (today unless the teacher steps back)
+    let attStartPending = false;       // true when showing the last day with data because today hasn't been started
+    normalizeAttendanceStores();
     let rows = 5;
     let cols = 6;
     let colWidths = [];
@@ -2203,8 +2232,7 @@
       localStorage.setItem('gcseat-last-course', courseId);
       seats = {};
       students = [];
-      if (!attendanceByCourse[courseId]) attendanceByCourse[courseId] = {};
-      attendance = attendanceByCourse[courseId];
+      initAttendanceForCourse();
       setStatus('<span class="spinner"></span> Loading roster…');
       assignBtn.disabled = true;
       editRoomBtn.disabled = true;
@@ -2374,6 +2402,122 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ATTENDANCE HISTORY (rolling two weeks)
+    // One set of marks per class per day. ‹ › step through school days (Mon–Fri).
+    // Past days are editable; they show a different color, a clock icon and the full date.
+    // If today has no marks yet, the most recent day with marks is shown with a
+    // "Start today" button (clears nothing — the seating chart is untouched).
+    // ═══════════════════════════════════════════════════════════════════════════
+    const ICON_CAL = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+    const ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+
+    function todayISO() { return localDateISO(); }
+    function dateFromISO(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+    function addDaysISO(iso, n) { const d = dateFromISO(iso); d.setDate(d.getDate() + n); return localDateISO(d); }
+    function isWeekendISO(iso) { const w = dateFromISO(iso).getDay(); return w === 0 || w === 6; }
+    function stepSchoolDay(iso, dir) {
+      let d = addDaysISO(iso, dir);
+      while (isWeekendISO(d)) d = addDaysISO(d, dir);
+      return d;
+    }
+    function earliestAllowedISO() { return addDaysISO(todayISO(), -ATT_KEEP_DAYS); }
+    function ordinal(n) {
+      const v = n % 100;
+      if (v >= 11 && v <= 13) return n + 'th';
+      return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+    }
+    function longDateISO(iso) {
+      const d = dateFromISO(iso);
+      return d.toLocaleDateString('en-US', { weekday: 'long' }) + ', ' +
+        d.toLocaleDateString('en-US', { month: 'long' }) + ' ' + ordinal(d.getDate()) + ', ' + d.getFullYear();
+    }
+
+    // Older saves held one flat set of marks per class (and one timestamp). File that
+    // under the day it was last changed; newer data is already keyed by date.
+    function normalizeCourseAttendance(data, meta) {
+      data = data || {};
+      if (Object.keys(data).some(k => !ISO_DATE_RE.test(k))) {
+        const ts = typeof meta === 'number' ? meta : Date.now();
+        const day = localDateISO(new Date(ts));
+        return { days: { [day]: data }, stamps: { [day]: ts } };
+      }
+      return { days: data, stamps: (meta && typeof meta === 'object') ? meta : {} };
+    }
+    function normalizeAttendanceStores() {
+      Object.keys(attendanceByCourse).forEach(id => {
+        const r = normalizeCourseAttendance(attendanceByCourse[id], attendanceUpdatedAt[id]);
+        attendanceByCourse[id] = r.days;
+        attendanceUpdatedAt[id] = r.stamps;
+      });
+      pruneAttendanceHistory();
+    }
+    function pruneAttendanceHistory() {
+      const cutoff = earliestAllowedISO();
+      Object.keys(attendanceByCourse).forEach(id => {
+        const days = attendanceByCourse[id] || {};
+        const stamps = attendanceUpdatedAt[id] || (attendanceUpdatedAt[id] = {});
+        Object.keys(days).forEach(day => {
+          if (day < cutoff) { delete days[day]; delete stamps[day]; }
+        });
+      });
+    }
+
+    function setAttendanceAlias() {
+      if (!attendanceByCourse[currentCourseId]) attendanceByCourse[currentCourseId] = {};
+      const days = attendanceByCourse[currentCourseId];
+      if (!days[viewDate]) days[viewDate] = {};
+      attendance = days[viewDate];
+    }
+
+    function initAttendanceForCourse() {
+      if (!attendanceByCourse[currentCourseId]) attendanceByCourse[currentCourseId] = {};
+      const days = attendanceByCourse[currentCourseId];
+      const today = todayISO();
+      const hasMarks = d => days[d] && Object.keys(days[d]).length > 0;
+      attStartPending = false;
+      if (hasMarks(today)) {
+        viewDate = today;
+      } else {
+        const recent = Object.keys(days).filter(d => d < today && hasMarks(d)).sort().pop();
+        if (recent) { viewDate = recent; attStartPending = true; }
+        else viewDate = today;
+      }
+      setAttendanceAlias();
+      updateAttendanceNav();
+    }
+
+    function updateAttendanceNav() {
+      const label = document.getElementById('attDateLabel');
+      const prev = document.getElementById('attPrevBtn');
+      const next = document.getElementById('attNextBtn');
+      const banner = document.getElementById('attBanner');
+      if (!label || !prev || !next || !banner) return;
+      const today = todayISO();
+      const past = viewDate !== today;
+      label.innerHTML = ICON_CAL + (past ? ICON_CLOCK : '') + '<span>' + longDateISO(viewDate) + '</span>';
+      label.title = past ? 'Not today' : 'Today';
+      document.body.classList.toggle('att-past', past);
+      prev.disabled = stepSchoolDay(viewDate, -1) < earliestAllowedISO();
+      next.disabled = !past || stepSchoolDay(viewDate, 1) > today;
+      if (!past) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+      banner.style.display = 'flex';
+      banner.innerHTML = ICON_CLOCK + '<span>' + (attStartPending
+        ? 'Showing <b>' + longDateISO(viewDate) + '</b> &mdash; today\'s attendance hasn\'t been started.'
+        : 'Viewing <b>' + longDateISO(viewDate) + '</b>. Changes here edit that day, not today.') +
+        '</span><button type="button" class="btn btn-primary" data-act="today" style="padding:4px 12px;">' +
+        (attStartPending ? 'Start today' : 'Back to today') + '</button>';
+    }
+
+    function goToAttendanceDate(iso) {
+      viewDate = iso;
+      attStartPending = false;
+      setAttendanceAlias();
+      updateAttendanceNav();
+      buildGrid();
+      renderRoster();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // EXPORT FOR AERIES HELPER
     // Writes gcseat-export_<date>_period<N>.json for the local Python script
     // (aeries-attendance/fill_attendance.py). Only students with a mark are included;
@@ -2509,7 +2653,7 @@
       if (!folder && !folderNote) folderNote = ' This browser cannot save to a folder.';
 
 
-      const date = localDateISO();
+      const date = viewDate;
       const text = JSON.stringify({ date, period, course: courseLabel, exported_at: new Date().toISOString(), students: list }, null, 2);
       const fileName = `gcseat-export_${date}_period${period}.json`;
 
@@ -2959,9 +3103,9 @@
         return;
       }
       if (mode === 'resetAttendance') {
-        if (!confirm('Clear present/absent/tardy/late status for this class?')) return;
-        attendanceByCourse[currentCourseId] = {};
-        attendance = attendanceByCourse[currentCourseId];
+        if (!confirm('Clear present/absent/tardy/late marks for this class on ' + longDateISO(viewDate) + '?')) return;
+        attendanceByCourse[currentCourseId][viewDate] = {};
+        setAttendanceAlias();
         saveAttendanceStore();
         buildGrid();
         renderRoster();
@@ -3008,6 +3152,12 @@
 
     document.getElementById('resetAttendanceBtn').addEventListener('click', () => doAssign('resetAttendance'));
     document.getElementById('exportAttendanceBtn').addEventListener('click', exportAttendanceForAeries);
+    document.getElementById('attPrevBtn').addEventListener('click', () => goToAttendanceDate(stepSchoolDay(viewDate, -1)));
+    document.getElementById('attNextBtn').addEventListener('click', () => goToAttendanceDate(stepSchoolDay(viewDate, 1)));
+    document.getElementById('attBanner').addEventListener('click', e => {
+      if (e.target.closest('[data-act="today"]')) goToAttendanceDate(todayISO());
+    });
+    updateAttendanceNav();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADD / REMOVE ROW
@@ -3066,7 +3216,11 @@
       catch { return {}; }
     }
     function saveAttendanceStore() {
-      if (currentCourseId) attendanceUpdatedAt[currentCourseId] = Date.now();
+      if (currentCourseId) {
+        if (!attendanceUpdatedAt[currentCourseId] || typeof attendanceUpdatedAt[currentCourseId] !== 'object') attendanceUpdatedAt[currentCourseId] = {};
+        attendanceUpdatedAt[currentCourseId][viewDate] = Date.now();
+      }
+      pruneAttendanceHistory();
       localStorage.setItem('gcseat-attendance', JSON.stringify(attendanceByCourse));
       localStorage.setItem('gcseat-attendance-meta', JSON.stringify(attendanceUpdatedAt));
       debouncedSyncToDrive();
@@ -3273,25 +3427,33 @@
           localStorage.setItem('gcseat-settings', JSON.stringify(existing));
         }
       }
-      // Attendance — last write wins per course, so whichever browser marked it
-      // most recently is the one that sticks.
+      // Attendance — last write wins per course per day, so whichever browser marked
+      // a given day most recently is the one that sticks. Older single-day data is converted.
       if (s.attendanceByCourse) {
         const remoteMeta = s.attendanceUpdatedAt || {};
         let changedCurrent = false;
-        Object.entries(s.attendanceByCourse).forEach(([courseId, data]) => {
-          const remoteTs = remoteMeta[courseId] || 0;
-          const localTs = attendanceUpdatedAt[courseId] || 0;
-          if (remoteTs > localTs) {
-            attendanceByCourse[courseId] = data;
-            attendanceUpdatedAt[courseId] = remoteTs;
-            if (courseId === currentCourseId) changedCurrent = true;
-          }
+        Object.entries(s.attendanceByCourse).forEach(([courseId, rawData]) => {
+          const remote = normalizeCourseAttendance(rawData, remoteMeta[courseId]);
+          if (!attendanceByCourse[courseId]) attendanceByCourse[courseId] = {};
+          if (!attendanceUpdatedAt[courseId]) attendanceUpdatedAt[courseId] = {};
+          const days = attendanceByCourse[courseId], stamps = attendanceUpdatedAt[courseId];
+          Object.entries(remote.days).forEach(([day, marks]) => {
+            const remoteTs = remote.stamps[day] || 0;
+            const localTs = stamps[day] || 0;
+            if (remoteTs > localTs) {
+              days[day] = marks;
+              stamps[day] = remoteTs;
+              if (courseId === currentCourseId && day === viewDate) changedCurrent = true;
+            }
+          });
         });
+        pruneAttendanceHistory();
         localStorage.setItem('gcseat-attendance', JSON.stringify(attendanceByCourse));
         localStorage.setItem('gcseat-attendance-meta', JSON.stringify(attendanceUpdatedAt));
         if (changedCurrent) {
-          attendance = attendanceByCourse[currentCourseId];
+          setAttendanceAlias();
           buildGrid();
+          renderRoster();
         }
       }
     }
