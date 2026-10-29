@@ -2421,30 +2421,42 @@
     }
 
     async function exportAttendanceForAeries() {
-      if (!currentCourseId) { showToast('Select a class first.'); return; }
+      try { await exportAttendanceForAeriesInner(); }
+      catch (e) {
+        console.error('Export for Aeries failed', e);
+        showToast('Export failed: ' + (e && e.message ? e.message : e), 15000);
+      }
+    }
+
+    async function exportAttendanceForAeriesInner() {
+      let folderNote = '';
+      if (!currentCourseId) { showToast('Select a class first.', 6000); return; }
 
       // Folder first: the permission prompt needs the click that started this.
       let folder = null;
       try { folder = await getExportFolder(); }
       catch (e) {
-        if (e && e.name === 'AbortError') { showToast('Export cancelled.'); return; }
+        if (e && e.name === 'AbortError') { showToast('Export cancelled (no folder chosen).', 6000); return; }
         folder = null;
+        folderNote = ' Could not use a folder (' + (e && e.name) + ': ' + (e && e.message) + ').';
+        console.warn('Export folder unavailable', e);
       }
+      if (!folder && !folderNote) folderNote = ' This browser cannot save to a folder.';
 
       const key = 'gcseat-aeries-period-' + currentCourseId;
       let remembered = '';
       try { remembered = localStorage.getItem(key) || ''; } catch (e) { /* ignore */ }
       const ans = window.prompt('Which Aeries period is this class? (e.g. 4)', remembered);
-      if (ans === null) return;
+      if (ans === null) { showToast('Export cancelled (no period entered).', 6000); return; }
       const period = ans.trim().replace(/^period\s*/i, '');
-      if (!/^[A-Za-z0-9]+$/.test(period)) { showToast('Enter a period such as 4.'); return; }
+      if (!/^[A-Za-z0-9]+$/.test(period)) { showToast('Enter a period such as 4.', 6000); return; }
       try { localStorage.setItem(key, period); } catch (e) { /* ignore */ }
 
       const list = students
         .filter(s => AERIES_STATUS[attendance[s.id]])
         .map(s => ({ email: s.email || '', name: `${s.lastName}, ${s.firstName}`, status: AERIES_STATUS[attendance[s.id]] }))
         .sort((a, b) => a.name.localeCompare(b.name));
-      if (!list.length) { showToast('No attendance marked yet for this class.'); return; }
+      if (!list.length) { showToast('No attendance marked yet for this class (nothing to export).', 8000); return; }
 
       const date = localDateISO();
       const courseLabel = courseSelect.querySelector(`option[value="${currentCourseId}"]`)?.textContent || '';
@@ -2457,9 +2469,12 @@
           const w = await fh.createWritable();
           await w.write(text);
           await w.close();
-          showToast(`Saved ${fileName} (${list.length} students) in "${folder.name}".`);
+          showToast(`Saved ${fileName} (${list.length} students) in folder "${folder.name}".`, 12000);
           return;
-        } catch (e) { /* fall through to a normal download */ }
+        } catch (e) {
+          folderNote = ' Could not write to folder "' + folder.name + '" (' + (e && e.name) + ': ' + (e && e.message) + ').';
+          console.warn('Export write failed', e);
+        }
       }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -2468,7 +2483,7 @@
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      showToast(`Downloaded ${fileName} (${list.length} students).`);
+      showToast(`Downloaded ${fileName} (${list.length} students) to your Downloads folder.` + folderNote, 20000);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -3826,12 +3841,12 @@
 
     function setStatus(html) { statusText.innerHTML = html; }
 
-    function showToast(msg) {
+    function showToast(msg, ms) {
       const toast = document.getElementById('toast');
       toast.textContent = msg;
       toast.classList.add('show');
       clearTimeout(toast._t);
-      toast._t = setTimeout(() => toast.classList.remove('show'), 2800);
+      toast._t = setTimeout(() => toast.classList.remove('show'), ms || 2800);
     }
   </script>
 </body>
